@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema PDV - Barraquinha</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Adicionando a biblioteca jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        /* Estilos personalizados */
+        .table-active {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .receipt-item:hover {
+            background-color: #f3f4f6;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+            /* Por padrão, colapsada em telas pequenas */
+            width: 70px; 
+        }
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        .sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+        /* Em telas maiores, a sidebar expande */
+        @media (min-width: 768px) { /* md breakpoint */
+            .sidebar {
+                width: 256px; /* w-64 */
+            }
+            .sidebar.collapsed {
+                width: 70px;
+            }
+            .sidebar.collapsed .sidebar-text {
+                display: none;
+            }
+        }
+
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-grow: 1; /* Permite que os botões de aba cresçam para preencher o espaço */
+            text-align: center;
+        }
+        .tab-button.active {
+            background-color: #2563eb;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex flex-col md:flex-row h-screen overflow-y-auto md:overflow-hidden">
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar bg-blue-800 text-white flex-shrink-0 flex flex-col">
+            <div class="p-4 flex items-center justify-between border-b border-blue-700">
+                <h1 class="text-xl font-bold sidebar-text whitespace-nowrap">Barraquinha PDV</h1>
+                <button id="toggleSidebar" class="text-white hover:text-blue-200 p-1 rounded-full md:hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <!-- Botão de toggle para desktop, se necessário, ou remover para sempre expandido -->
+                <button id="toggleSidebarDesktop" class="text-white hover:text-blue-200 p-1 rounded-full hidden md:block">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+            </div>
+            <nav class="flex-1 overflow-y-auto">
+                <div class="p-2">
+                    <button id="navMesas" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 17a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM17 5a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5z" />
+                        </svg>
+                        <span class="ml-3 sidebar-text">Mesas</span>
+                    </button>
+                    <button id="navAdmin" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700 mt-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span class="ml-3 sidebar-text">Administração</span>
+                    </button>
+                </div>
+            </nav>
+            <div class="p-4 border-t border-blue-700">
+                <div class="flex items-center">
+                    <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                        <span class="text-white font-bold">AD</span>
+                    </div>
+                    <div class="ml-3 sidebar-text">
+                        <p class="text-sm font-medium">Admin</p>
+                        <p class="text-xs text-blue-200">Sessão iniciada</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto p-4">
+            <!-- Mesas View -->
+            <div id="mesasView">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Mesas</h2>
+                    <div class="w-full sm:w-auto">
+                        <button id="addTable" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Nova Mesa
+                        </button>
+                    </div>
+                </div>
+
+                <div id="tablesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    <!-- Tables will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Admin View -->
+            <div id="adminView" class="hidden">
+                <div id="loginSection" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl mt-10">
+                    <div class="p-8">
+                        <div class="text-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">Área Administrativa</h2>
+                            <p class="text-gray-600 mt-2">Digite a senha para acessar</p>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                                Senha
+                            </label>
+                            <input id="adminPassword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="********">
+                        </div>
+                        <button id="loginButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                            Acessar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="adminDashboard" class="hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Painel Administrativo</h2>
+                        <button id="logoutButton" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">
+                            Sair
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mb-6 border-b pb-2">
+                        <button id="adminProductsTab" class="tab-button active">Produtos</button>
+                        <button id="adminTablesTab" class="tab-button">Mesas</button>
+                        <button id="adminFinanceTab" class="tab-button">Financeiro</button>
+                    </div>
+
+                    <!-- Products Tab -->
+                    <div id="productsTabContent" class="tab-content">
+                        <div class="flex justify-end mb-4">
+                            <button id="addProductButton" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Adicionar Produto
+                            </button>
+                        </div>
+                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Products will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tables Tab -->
+                    <div id="tablesTabContent" class="tab-content hidden">
+                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablesTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Tables will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Finance Tab -->
+                    <div id="financeTabContent" class="tab-content hidden">
+                        <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0">
+                            <div class="w-full sm:w-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                                <div>
+                                    <label for="dateStartFilter" class="block text-sm font-medium text-gray-700">Data Inicial:</label>
+                                    <input type="date" id="dateStartFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label for="dateEndFilter" class="block text-sm font-medium text-gray-700">Data Final:</label>
+                                    <input type="date" id="dateEndFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                </div>
+                            </div>
+                            <div class="flex w-full sm:w-auto space-x-2">
+                                <button id="resetDateFilter" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                                    Limpar Filtro
+                                </button>
+                                <button id="generatePDF" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                                    Gerar PDF
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mesa</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desconto</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço (10%)</th> <!-- New Column -->
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Final</th> <!-- Changed to Total Final -->
+                                    </tr>
+                                </thead>
+                                <tbody id="salesTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Sales will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 p-4 bg-gray-100 rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium">Total do Período:</span>
+                                <span id="periodTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="font-medium">Total de Descontos:</span>
+                                <span id="periodDiscountTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="font-medium">Total de Serviço (10%):</span>
+                                <span id="periodServiceChargeTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Product Modal -->
+                <div id="addProductModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Adicionar Produto</h3>
+                            <button id="closeProductModal" class="text-gray-500 hover:text-gray-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <form id="productForm">
+                            <div class="mb-4">
+                                <label for="productName" class="block text-gray-700 text-sm font-bold mb-2">Nome do Produto</label>
+                                <input type="text" id="productName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="productCategory" class="block text-gray-700 text-sm font-bold mb-2">Categoria</label>
+                                <input type="text" id="productCategory" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="productPrice" class="block text-gray-700 text-sm font-bold mb-2">Preço</label>
+                                <input type="number" step="0.01" min="0" id="productPrice" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4">
+                                <button type="button" id="cancelProduct" class="w-full sm:w-auto bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                                    Cancelar
+                                </button>
+                                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Modal -->
+            <div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center border-b p-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Pedido - Mesa <span id="modalTableNumber">1</span></h3>
+                        <button id="closeOrderModal" class="text-gray-500 hover:text-gray-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="w-full md:w-1/2">
+                                <h4 class="text-md font-semibold mb-3 text-gray-700">Adicionar Itens</h4>
+                                <div class="mb-4">
+                                    <input type="text" id="itemSearch" placeholder="Buscar produto..." class="w-full p-2 border rounded">
+                                </div>
+                                <div id="productsList" class="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-2">
+                                    <!-- Products will be added here -->
+                                </div>
+                            </div>
+                            <div class="w-full md:w-1/2 mt-6 md:mt-0">
+                                <h4 class="text-md font-semibold mb-3 text-gray-700">Resumo do Pedido</h4>
+                                <div id="orderSummary" class="border rounded-lg p-4 mb-4 h-64 md:h-96 overflow-y-auto">
+                                    <!-- Order items will be added here -->
+                                </div>
+                                <div class="bg-gray-100 p-4 rounded-lg">
+                                    <div class="flex justify-between mb-2">
+                                        <span class="font-medium">Subtotal:</span>
+                                        <span id="subtotal" class="font-medium">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between mb-2">
+                                        <span>Desconto:</span>
+                                        <input type="number" id="discount" min="0" max="100" step="0.01" class="w-20 text-right" value="0"> %
+                                    </div>
+                                    <div class="flex justify-between mb-2">
+                                        <span>Serviço (10%):</span>
+                                        <span id="serviceChargeAmount" class="font-medium">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between font-bold text-lg">
+                                        <span>Total Final:</span>
+                                        <span id="total" class="text-blue-600">R$ 0,00</span>
+                                    </div>
+                                    <div class="mt-4 flex items-center">
+                                        <input type="checkbox" id="includeServiceCharge" class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                        <label for="includeServiceCharge" class="text-sm font-medium text-gray-700">Incluir 10% do Garçom</label>
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+                                    <button id="cancelOrder" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded flex-1">
+                                        Cancelar Pedido
+                                    </button>
+                                    <button id="saveOrder" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex-1">
+                                        Salvar Pedido
+                                    </button>
+                                    <button id="checkoutOrder" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex-1">
+                                        Finalizar Pedido
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inicializa jsPDF
+        const { jsPDF } = window.jspdf;
+        
+        // Estado da aplicação
+        const state = {
+            tables: JSON.parse(localStorage.getItem('tables')) || [],
+            products: JSON.parse(localStorage.getItem('products')) || [
+                { id: 1, name: 'Cachorro Quente', category: 'Lanches', price: 12.50 },
+                { id: 2, name: 'Refrigerante', category: 'Bebidas', price: 5.00 },
+                { id: 3, name: 'Porção de Batata', category: 'Acompanhamentos', price: 15.00 },
+                { id: 4, name: 'Sanduíche', category: 'Lanches', price: 18.00 },
+            ],
+            sales: JSON.parse(localStorage.getItem('sales')) || [],
+            adminPassword: 'barrinha123',
+            currentTable: null,
+            currentOrder: null,
+            isAdmin: false
+        };
+
+        // Elementos do DOM
+        const elements = {
+            mesasView: document.getElementById('mesasView'),
+            adminView: document.getElementById('adminView'),
+            loginSection: document.getElementById('loginSection'),
+            adminDashboard: document.getElementById('adminDashboard'),
+            tablesGrid: document.getElementById('tablesGrid'),
+            tablesTableBody: document.getElementById('tablesTableBody'),
+            productsTableBody: document.getElementById('productsTableBody'),
+            salesTableBody: document.getElementById('salesTableBody'),
+            productsList: document.getElementById('productsList'),
+            orderSummary: document.getElementById('orderSummary'),
+            orderModal: document.getElementById('orderModal'),
+            addProductModal: document.getElementById('addProductModal'),
+            sidebar: document.getElementById('sidebar'),
+            subtotal: document.getElementById('subtotal'),
+            total: document.getElementById('total'),
+            discount: document.getElementById('discount'),
+            serviceChargeAmount: document.getElementById('serviceChargeAmount'), // New element
+            includeServiceCharge: document.getElementById('includeServiceCharge'), // New element
+            productForm: document.getElementById('productForm'),
+            itemSearch: document.getElementById('itemSearch'),
+            dateStartFilter: document.getElementById('dateStartFilter'), 
+            dateEndFilter: document.getElementById('dateEndFilter'),     
+            periodTotal: document.getElementById('periodTotal'),
+            periodDiscountTotal: document.getElementById('periodDiscountTotal'), 
+            periodServiceChargeTotal: document.getElementById('periodServiceChargeTotal'), 
+            adminProductsTab: document.getElementById('adminProductsTab'),
+            adminTablesTab: document.getElementById('adminTablesTab'),
+            adminFinanceTab: document.getElementById('adminFinanceTab'),
+            productsTabContent: document.getElementById('productsTabContent'),
+            tablesTabContent: document.getElementById('tablesTabContent'),
+            financeTabContent: document.getElementById('financeTabContent'),
+            generatePDF: document.getElementById('generatePDF')
+        };
+
+        // Event Listeners
+        document.getElementById('navMesas').addEventListener('click', () => {
+            elements.mesasView.classList.remove('hidden');
+            elements.adminView.classList.add('hidden');
+            // Colapsar sidebar em mobile ao navegar
+            if (window.innerWidth < 768) {
+                elements.sidebar.classList.add('collapsed');
+            }
+        });
+
+        document.getElementById('navAdmin').addEventListener('click', () => {
+            elements.mesasView.classList.add('hidden');
+            elements.adminView.classList.remove('hidden');
+            
+            if (!state.isAdmin) {
+                elements.loginSection.classList.remove('hidden');
+                elements.adminDashboard.classList.add('hidden');
+            }
+            // Colapsar sidebar em mobile ao navegar
+            if (window.innerWidth < 768) {
+                elements.sidebar.classList.add('collapsed');
+            }
+        });
+
+        document.getElementById('addTable').addEventListener('click', addTable);
+        document.getElementById('loginButton').addEventListener('click', adminLogin);
+        document.getElementById('logoutButton').addEventListener('click', adminLogout);
+        document.getElementById('addProductButton').addEventListener('click', () => {
+            document.getElementById('addProductModal').classList.remove('hidden');
+            document.getElementById('productForm').reset();
+        });
+        document.getElementById('closeProductModal').addEventListener('click', () => {
+            document.getElementById('addProductModal').classList.add('hidden');
+        });
+        document.getElementById('cancelProduct').addEventListener('click', () => {
+            document.getElementById('addProductModal').classList.add('hidden');
+        });
+        document.getElementById('closeOrderModal').addEventListener('click', () => {
+            document.getElementById('orderModal').classList.add('hidden');
+        });
+        document.getElementById('cancelOrder').addEventListener('click', cancelOrder);
+        document.getElementById('saveOrder').addEventListener('click', saveOrder);
+        document.getElementById('checkoutOrder').addEventListener('click', checkoutOrder);
+        
+        // Toggle sidebar para mobile e desktop
+        document.getElementById('toggleSidebar').addEventListener('click', toggleSidebar);
+        const toggleSidebarDesktop = document.getElementById('toggleSidebarDesktop');
+        if (toggleSidebarDesktop) { // Verifica se o elemento existe
+            toggleSidebarDesktop.addEventListener('click', toggleSidebar);
+        }
+
+        elements.discount.addEventListener('input', updateOrderTotal);
+        elements.includeServiceCharge.addEventListener('change', updateOrderTotal); // New event listener
+        elements.itemSearch.addEventListener('input', filterProducts);
+        elements.dateStartFilter.addEventListener('change', filterSalesByDateRange); 
+        elements.dateEndFilter.addEventListener('change', filterSalesByDateRange);   
+        document.getElementById('resetDateFilter').addEventListener('click', resetDateFilter);
+        document.getElementById('adminProductsTab').addEventListener('click', () => switchTab('products'));
+        document.getElementById('adminTablesTab').addEventListener('click', () => switchTab('tables'));
+        document.getElementById('adminFinanceTab').addEventListener('click', () => switchTab('finance'));
+        document.getElementById('generatePDF').addEventListener('click', generateSalesPDF);
+
+        elements.productForm.addEventListener('submit', saveProduct);
+        
+
+        // Funções de inicialização
+        function init() {
+            renderTables();
+            renderProductsForAdmin();
+            renderTablesForAdmin();
+            renderSales();
+            saveProductsToLocalStorage();
+            saveTablesToLocalStorage();
+            saveSalesToLocalStorage();
+
+            // Colapsar sidebar por padrão em telas pequenas
+            if (window.innerWidth < 768) {
+                elements.sidebar.classList.add('collapsed');
+            }
+        }
+
+        // Funções da área de mesas
+        function addTable() {
+            const newTable = {
+                id: Date.now(), // Usando timestamp como ID único
+                number: state.tables.length + 1,
+                status: 'available', // available, occupied, reserved
+                order: null
+            };
+            state.tables.push(newTable);
+            saveTablesToLocalStorage();
+            renderTables();
+            renderTablesForAdmin();
+        }
+
+        function deleteTable(tableId) {
+            if (confirm('Tem certeza que deseja excluir esta mesa? Esta ação não pode ser desfeita.')) {
+                state.tables = state.tables.filter(t => t.id !== tableId);
+                saveTablesToLocalStorage();
+                renderTables();
+                renderTablesForAdmin();
+                alert('Mesa excluída com sucesso!');
+            }
+        }
+
+        function renderTables() {
+            elements.tablesGrid.innerHTML = '';
+            
+            state.tables.forEach(table => {
+                const tableElement = document.createElement('div');
+                tableElement.className = `bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow ${table.status === 'occupied' ? 'border-l-4 border-red-500' : ''}`;
+                tableElement.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-lg">Mesa ${table.number}</span>
+                            <span class="text-sm text-gray-500 capitalize">${table.status}</span>
+                        </div>
+                        <span class="text-xs bg-gray-100 px-2 py-1 rounded-full">#${table.id}</span>
+                    </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <span class="text-sm text-gray-600">
+                            ${table.status === 'occupied' ? 'Pedido em andamento' : 'Disponível'}
+                        </span>
+                        <button class="bg-blue-100 hover:bg-blue-200 text-blue-600 p-2 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin='round' stroke-width='2' d='M9 5l7 7-7 7' />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                tableElement.addEventListener('click', () => openOrderModal(table));
+                elements.tablesGrid.appendChild(tableElement);
+            });
+        }
+
+        function renderTablesForAdmin() {
+            if (!elements.tablesTableBody) return;
+            
+            elements.tablesTableBody.innerHTML = '';
+            
+            state.tables.forEach(table => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${table.number}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500 capitalize">${table.status}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="delete-table text-red-600 hover:text-red-900" data-id="${table.id}">Excluir</button>
+                    </td>
+                `;
+                
+                elements.tablesTableBody.appendChild(row);
+            });
+            
+            // Adicionar event listeners para exclusão
+            document.querySelectorAll('.delete-table').forEach(button => {
+                button.addEventListener('click', function() {
+                    const tableId = parseInt(this.getAttribute('data-id'));
+                    deleteTable(tableId);
+                });
+            });
+        }
+
+        function openOrderModal(table) {
+            state.currentTable = table;
+            document.getElementById('modalTableNumber').textContent = table.number;
+            
+            // Se há um pedido existente para esta mesa, carregá-lo
+            // Garante que serviceChargePercentage e serviceChargeAmount sejam inicializados
+            state.currentOrder = table.order ? {
+                ...table.order, // Copia todas as propriedades existentes
+                serviceChargePercentage: table.order.serviceChargePercentage || 0, // Garante que seja 0 se não existir
+                serviceChargeAmount: table.order.serviceChargeAmount || 0          // Garante que seja 0 se não existir
+            } : {
+                items: [],
+                subtotal: 0,
+                discount: 0,
+                total: 0,
+                serviceChargePercentage: 10, // PADRÃO: Taxa de serviço de 10%
+                serviceChargeAmount: 0,     
+                status: 'open'
+            };
+
+            // Sincroniza o estado do checkbox com o serviceChargePercentage do pedido
+            elements.includeServiceCharge.checked = state.currentOrder.serviceChargePercentage > 0;
+            elements.discount.value = state.currentOrder.discount; // Garante que o desconto seja carregado
+            
+            renderProductsForOrder();
+            renderOrderSummary();
+            updateOrderTotal(); // Chama updateOrderTotal para recalcular e exibir os valores
+            
+            document.getElementById('orderModal').classList.remove('hidden');
+        }
+
+        function renderProductsForOrder() {
+            elements.productsList.innerHTML = '';
+            
+            state.products.forEach(product => {
+                const productElement = document.createElement('div');
+                productElement.className = 'bg-white border rounded-lg p-3 hover:shadow transition-shadow';
+                productElement.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">${product.name}</p>
+                            <p class="text-sm text-gray-500">${product.category} - R$ ${product.price.toFixed(2).replace('.', ',')}</p>
+                        </div>
+                        <button class="add-to-order bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                            Adicionar
+                        </button>
+                    </div>
+                `;
+                
+                productElement.querySelector('.add-to-order').addEventListener('click', () => {
+                    addItemToOrder(product);
+                });
+                
+                elements.productsList.appendChild(productElement);
+            });
+        }
+
+        function filterProducts() {
+            const searchTerm = elements.itemSearch.value.toLowerCase();
+            const products = document.querySelectorAll('#productsList > div');
+            
+            products.forEach(product => {
+                const name = product.querySelector('p.font-medium').textContent.toLowerCase();
+                const category = product.querySelector('p.text-sm.text-gray-500').textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || category.includes(searchTerm)) {
+                    product.style.display = 'block';
+                } else {
+                    product.style.display = 'none';
+                }
+            });
+        }
+
+        function addItemToOrder(product) {
+            const existingItemIndex = state.currentOrder.items.findIndex(item => item.productId === product.id);
+            
+            if (existingItemIndex !== -1) {
+                state.currentOrder.items[existingItemIndex].quantity += 1;
+            } else {
+                state.currentOrder.items.push({
+                    productId: product.id,
+                    name: product.name,
+                    price: product.price,
+                    quantity: 1
+                });
+            }
+            
+            updateOrderTotal();
+            renderOrderSummary();
+        }
+
+        function renderOrderSummary() {
+            elements.orderSummary.innerHTML = '';
+            
+            if (state.currentOrder.items.length === 0) {
+                elements.orderSummary.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum item adicionado</p>';
+                return;
+            }
+            
+            state.currentOrder.items.forEach((item, index) => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'receipt-item flex justify-between items-center py-2 px-2 border-b';
+                itemElement.innerHTML = `
+                    <div class="flex-1">
+                        <p class="font-medium">${item.name}</p>
+                        <p class="text-sm text-gray-500">R$ ${item.price.toFixed(2).replace('.', ',')} x ${item.quantity}</p>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="font-medium mr-4">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
+                        <button class="remove-item text-red-500 hover:text-red-700 mr-2" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                        <button class="decrease-item text-blue-500 hover:text-blue-700" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                            </svg>
+                        </button>
+                        <span class="quantity mx-2">${item.quantity}</span>
+                        <button class="increase-item text-blue-500 hover:text-blue-700" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                elements.orderSummary.appendChild(itemElement);
+            });
+            
+            // Adicionar event listeners para os botões de ação
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    removeItemFromOrder(index);
+                });
+            });
+            
+            document.querySelectorAll('.decrease-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    decreaseItemQuantity(index);
+                });
+            });
+            
+            document.querySelectorAll('.increase-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    increaseItemQuantity(index);
+                });
+            });
+        }
+
+        function removeItemFromOrder(index) {
+            state.currentOrder.items.splice(index, 1);
+            renderOrderSummary();
+            updateOrderTotal();
+        }
+
+        function decreaseItemQuantity(index) {
+            if (state.currentOrder.items[index].quantity > 1) {
+                state.currentOrder.items[index].quantity -= 1;
+                renderOrderSummary();
+                updateOrderTotal();
+            }
+        }
+
+        function increaseItemQuantity(index) {
+            state.currentOrder.items[index].quantity += 1;
+            renderOrderSummary();
+            updateOrderTotal();
+        }
+
+        function updateOrderTotal() {
+            state.currentOrder.subtotal = state.currentOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            // Obter desconto do input
+            state.currentOrder.discount = parseFloat(elements.discount.value) || 0;
+            
+            // Calcular total após desconto
+            let totalAfterDiscount = state.currentOrder.subtotal - (state.currentOrder.subtotal * (state.currentOrder.discount / 100));
+            
+            // Calcular taxa de serviço (10%)
+            if (elements.includeServiceCharge.checked) {
+                state.currentOrder.serviceChargePercentage = 10;
+                state.currentOrder.serviceChargeAmount = totalAfterDiscount * 0.10;
+            } else {
+                state.currentOrder.serviceChargePercentage = 0;
+                state.currentOrder.serviceChargeAmount = 0;
+            }
+
+            // Calcular total final
+            state.currentOrder.total = totalAfterDiscount + state.currentOrder.serviceChargeAmount;
+            
+            elements.subtotal.textContent = `R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`;
+            elements.serviceChargeAmount.textContent = `R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`; // Update service charge display
+            elements.total.textContent = `R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`;
+        }
+
+        function cancelOrder() {
+            state.currentOrder = null;
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        function saveOrder() {
+            const tableIndex = state.tables.findIndex(t => t.id === state.currentTable.id);
+            
+            if (tableIndex !== -1) {
+                state.tables[tableIndex].order = state.currentOrder;
+                state.tables[tableIndex].status = 'occupied';
+                saveTablesToLocalStorage();
+                
+                // Atualizar o status na exibição das mesas
+                renderTables();
+                renderTablesForAdmin();
+                
+                // Mostrar mensagem de sucesso
+                alert('Pedido salvo com sucesso!');
+            }
+            
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        function checkoutOrder() {
+            if (confirm('Deseja finalizar este pedido?')) {
+                const tableIndex = state.tables.findIndex(t => t.id === state.currentTable.id);
+                
+                if (tableIndex !== -1) {
+                    // Registrar a venda no histórico
+                    const sale = {
+                        id: Date.now(),
+                        date: new Date().toISOString(),
+                        tableNumber: state.tables[tableIndex].number,
+                        items: [...state.currentOrder.items], 
+                        subtotal: state.currentOrder.subtotal,
+                        discount: state.currentOrder.discount,
+                        serviceChargePercentage: state.currentOrder.serviceChargePercentage, // Save service charge percentage
+                        serviceChargeAmount: state.currentOrder.serviceChargeAmount,     // Save service charge amount
+                        total: state.currentOrder.total
+                    };
+                    state.sales.push(sale);
+                    saveSalesToLocalStorage();
+                    
+                    // Limpar o pedido da mesa
+                    state.tables[tableIndex].order = null;
+                    state.tables[tableIndex].status = 'available';
+                    saveTablesToLocalStorage();
+
+                    // Resetar o desconto para o próximo pedido
+                    elements.discount.value = 0; 
+                    
+                    // Mostrar mensagem de sucesso
+                    alert('Pedido finalizado com sucesso!');
+                }
+                
+                document.getElementById('orderModal').classList.add('hidden');
+            }
+        }
+
+        // Funções da área administrativa
+        function adminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            
+            if (password === state.adminPassword) {
+                state.isAdmin = true;
+                elements.loginSection.classList.add('hidden');
+                elements.adminDashboard.classList.remove('hidden');
+                renderProductsForAdmin();
+                renderTablesForAdmin();
+                renderSales();
+            } else {
+                alert('Senha incorreta!');
+            }
+        }
+
+        function adminLogout() {
+            state.isAdmin = false;
+            elements.loginSection.classList.remove('hidden');
+            elements.adminDashboard.classList.add('hidden');
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function renderProductsForAdmin() {
+            elements.productsTableBody.innerHTML = '';
+            
+            state.products.forEach(product => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${product.category}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">R$ ${product.price.toFixed(2).replace('.', ',')}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="edit-product text-blue-600 hover:text-blue-900 mr-3" data-id="${product.id}">Editar</button>
+                        <button class="delete-product text-red-600 hover:text-red-900" data-id="${product.id}">Excluir</button>
+                    </td>
+                `;
+                
+                elements.productsTableBody.appendChild(row);
+            });
+            
+            // Adicionar event listeners para edição/exclusão
+            document.querySelectorAll('.edit-product').forEach(button => {
+                button.addEventListener('click', function() {
+                    const productId = parseInt(this.getAttribute('data-id'));
+                    editProduct(productId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-product').forEach(button => {
+                button.addEventListener('click', function() {
+                    const productId = parseInt(this.getAttribute('data-id'));
+                    deleteProduct(productId);
+                });
+            });
+        }
+
+        function saveProduct(e) {
+            e.preventDefault();
+            
+            const productName = document.getElementById('productName').value;
+            const productCategory = document.getElementById('productCategory').value;
+            const productPrice = parseFloat(document.getElementById('productPrice').value);
+            
+            if (productName && productCategory && !isNaN(productPrice)) {
+                const newProduct = {
+                    id: Date.now(),
+                    name: productName,
+                    category: productCategory,
+                    price: productPrice
+                };
+                
+                state.products.push(newProduct);
+                saveProductsToLocalStorage();
+                renderProductsForAdmin();
+                
+                document.getElementById('addProductModal').classList.add('hidden');
+                alert('Produto adicionado com sucesso!');
+            } else {
+                alert('Por favor, preencha todos os campos corretamente!');
+            }
+        }
+
+        function editProduct(productId) {
+            const product = state.products.find(p => p.id === productId);
+            
+            if (product) {
+                document.getElementById('productName').value = product.name;
+                document.getElementById('productCategory').value = product.category;
+                document.getElementById('productPrice').value = product.price;
+                
+                // Alterar o formulário para modo de edição
+                document.getElementById('productForm').removeEventListener('submit', saveProduct);
+                document.getElementById('productForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const productName = document.getElementById('productName').value;
+                    const productCategory = document.getElementById('productCategory').value;
+                    const productPrice = parseFloat(document.getElementById('productPrice').value);
+                    
+                    if (productName && productCategory && !isNaN(productPrice)) {
+                        product.name = productName;
+                        product.category = productCategory;
+                        product.price = productPrice;
+                        
+                        saveProductsToLocalStorage();
+                        renderProductsForAdmin();
+                        
+                        document.getElementById('addProductModal').classList.add('hidden');
+                        alert('Produto atualizado com sucesso!');
+                        
+                        // Restaurar o listener original
+                        document.getElementById('productForm').removeEventListener('submit', arguments.callee);
+                        document.getElementById('productForm').addEventListener('submit', saveProduct);
+                    } else {
+                        alert('Por favor, preencha todos os campos corretamente!');
+                    }
+                });
+                
+                document.getElementById('addProductModal').classList.remove('hidden');
+            }
+        }
+
+        function deleteProduct(productId) {
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                state.products = state.products.filter(p => p.id !== productId);
+                saveProductsToLocalStorage();
+                renderProductsForAdmin();
+                alert('Produto excluído com sucesso!');
+            }
+        }
+
+        // Funções do financeiro
+        function renderSales() {
+            if (!elements.salesTableBody) return;
+            
+            elements.salesTableBody.innerHTML = '';
+            
+            let totalPeriod = 0;
+            let totalDiscount = 0; 
+            let totalServiceCharge = 0; 
+            const filteredSales = filterSales();
+            
+            filteredSales.forEach(sale => {
+                totalPeriod += sale.total;
+                totalDiscount += (sale.subtotal * (sale.discount / 100)); 
+                totalServiceCharge += (sale.serviceChargeAmount || 0); 
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                const saleDate = new Date(sale.date);
+                const formattedDate = saleDate.toLocaleDateString('pt-BR');
+                const formattedTime = saleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${formattedDate}</div>
+                        <div class="text-sm text-gray-500">${formattedTime}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${sale.tableNumber}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">
+                            ${sale.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">R$ ${sale.subtotal.toFixed(2).replace('.', ',')}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${sale.discount}%</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">R$ ${sale.total.toFixed(2).replace('.', ',')}</div>
+                    </td>
+                `;
+                
+                elements.salesTableBody.appendChild(row);
+            });
+            
+            elements.periodTotal.textContent = `R$ ${totalPeriod.toFixed(2).replace('.', ',')}`;
+            elements.periodDiscountTotal.textContent = `R$ ${totalDiscount.toFixed(2).replace('.', ',')}`; 
+            elements.periodServiceChargeTotal.textContent = `R$ ${totalServiceCharge.toFixed(2).replace('.', ',')}`; 
+        }
+
+        function filterSales() {
+            const startDateValue = elements.dateStartFilter.value;
+            const endDateValue = elements.dateEndFilter.value;
+            
+            if (!startDateValue && !endDateValue) {
+                return state.sales; 
+            }
+
+            let startDate = null;
+            let endDate = null;
+
+            if (startDateValue) {
+                startDate = new Date(startDateValue);
+                startDate.setHours(0, 0, 0, 0); 
+            }
+            if (endDateValue) {
+                endDate = new Date(endDateValue);
+                endDate.setHours(23, 59, 59, 999); 
+            }
+
+            return state.sales.filter(sale => {
+                const saleDate = new Date(sale.date);
+                
+                let isAfterStartDate = true;
+                if (startDate) {
+                    isAfterStartDate = saleDate >= startDate;
+                }
+
+                let isBeforeEndDate = true;
+                if (endDate) {
+                    isBeforeEndDate = saleDate <= endDate;
+                }
+
+                return isAfterStartDate && isBeforeEndDate;
+            });
+        }
+
+        function filterSalesByDateRange() { 
+            renderSales();
+        }
+
+        function resetDateFilter() {
+            elements.dateStartFilter.value = '';
+            elements.dateEndFilter.value = '';
+            renderSales();
+        }
+
+        function generateSalesPDF() {
+            const filteredSales = filterSales();
+            const startDateValue = elements.dateStartFilter.value;
+            const endDateValue = elements.dateEndFilter.value;
+            
+            if (filteredSales.length === 0) {
+                alert('Nenhuma venda encontrada para o período selecionado!');
+                return;
+            }
+            
+            const doc = new jsPDF();
+            
+            // Configurações do documento
+            let fileName = 'Relatorio_Vendas_Completo.pdf';
+            if (startDateValue && endDateValue) {
+                fileName = `Relatorio_Vendas_${startDateValue.replace(/-/g, '_')}_a_${endDateValue.replace(/-/g, '_')}.pdf`;
+            } else if (startDateValue) {
+                fileName = `Relatorio_Vendas_A_partir_de_${startDateValue.replace(/-/g, '_')}.pdf`;
+            } else if (endDateValue) {
+                fileName = `Relatorio_Vendas_Ate_${endDateValue.replace(/-/g, '_')}.pdf`;
+            }
+            
+            // Cabeçalho
+            doc.setFontSize(18);
+            doc.setTextColor(40);
+            doc.text('Relatório de Vendas - Barraquinha', 15, 15);
+            
+            doc.setFontSize(12);
+            if (startDateValue && endDateValue) {
+                const formattedStartDate = new Date(startDateValue).toLocaleDateString('pt-BR');
+                const formattedEndDate = new Date(endDateValue).toLocaleDateString('pt-BR');
+                doc.text(`Período: ${formattedStartDate} a ${formattedEndDate}`, 15, 25);
+            } else if (startDateValue) {
+                const formattedStartDate = new Date(startDateValue).toLocaleDateString('pt-BR');
+                doc.text(`Período: A partir de ${formattedStartDate}`, 15, 25);
+            } else if (endDateValue) {
+                const formattedEndDate = new Date(endDateValue).toLocaleDateString('pt-BR');
+                doc.text(`Período: Até ${formattedEndDate}`, 15, 25);
+            } else {
+                doc.text('Período: Todas as vendas', 15, 25);
+            }
+            
+            // Dados da tabela
+            const headers = [['Data/Hora', 'Mesa', 'Itens', 'Subtotal', 'Desconto', 'Serviço (10%)', 'Total Final']]; 
+            const data = filteredSales.map(sale => {
+                const saleDate = new Date(sale.date);
+                const formattedDate = saleDate.toLocaleDateString('pt-BR');
+                const formattedTime = saleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const items = sale.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
+                
+                return [
+                    `${formattedDate}\n${formattedTime}`,
+                    sale.tableNumber,
+                    items,
+                    `R$ ${sale.subtotal.toFixed(2).replace('.', ',')}`,
+                    `${sale.discount}%`,
+                    `R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}`, 
+                    `R$ ${sale.total.toFixed(2).replace('.', ',')}`
+                ];
+            });
+            
+            // Calcular totais para o rodapé do PDF
+            const totalPeriod = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+            const totalDiscount = filteredSales.reduce((sum, sale) => sum + (sale.subtotal * (sale.discount/100)), 0);
+            const totalServiceCharge = filteredSales.reduce((sum, sale) => sum + (sale.serviceChargeAmount || 0), 0); 
+
+            // Adicionar tabela
+            doc.autoTable({
+                head: headers,
+                body: data,
+                startY: 30,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [41, 128, 185],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { cellWidth: 25 },
+                    1: { cellWidth: 15 },
+                    2: { cellWidth: 45 }, 
+                    3: { cellWidth: 20 },
+                    4: { cellWidth: 20 },
+                    5: { cellWidth: 25 }, 
+                    6: { cellWidth: 20 }  
+                },
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                margin: { left: 15 }
+            });
+            
+            // Adicionar totais no rodapé
+            const finalY = doc.lastAutoTable.finalY + 10;
+            doc.setFontSize(12);
+            doc.setTextColor(0);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Total de Descontos: R$ ${totalDiscount.toFixed(2).replace('.', ',')}`, 15, finalY);
+            doc.text(`Total de Serviço (10%): R$ ${totalServiceCharge.toFixed(2).replace('.', ',')}`, 15, finalY + 8);
+            doc.text(`Total do Período: R$ ${totalPeriod.toFixed(2).replace('.', ',')}`, 15, finalY + 16);
+            
+            // Salvar PDF
+            doc.save(fileName);
+        }
+
+        // Funções de navegação entre abas
+        function switchTab(tab) {
+            // Desativar todas as abas
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Esconder todos os conteúdos
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Ativar a aba selecionada
+            if (tab === 'products') {
+                elements.adminProductsTab.classList.add('active');
+                elements.productsTabContent.classList.remove('hidden');
+            } else if (tab === 'tables') {
+                elements.adminTablesTab.classList.add('active');
+                elements.tablesTabContent.classList.remove('hidden');
+            } else if (tab === 'finance') {
+                elements.adminFinanceTab.classList.add('active');
+                elements.financeTabContent.classList.remove('hidden');
+            }
+        }
+
+        // Funções utilitárias
+        function saveProductsToLocalStorage() {
+            localStorage.setItem('products', JSON.stringify(state.products));
+        }
+
+        function saveTablesToLocalStorage() {
+            localStorage.setItem('tables', JSON.stringify(state.tables));
+        }
+
+        function saveSalesToLocalStorage() {
+            localStorage.setItem('sales', JSON.stringify(state.sales));
+        }
+
+        function toggleSidebar() {
+            elements.sidebar.classList.toggle('collapsed');
+        }
+
+        // Inicializar a aplicação
+        init();
+    </script>
+</body>
+</html>
