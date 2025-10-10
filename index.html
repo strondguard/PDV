@@ -24,20 +24,26 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .sidebar {
-            transition: all 0.3s ease;
-            /* Por padrão, colapsada em telas pequenas */
-            width: 70px; 
+            transition: width 0.3s ease-in-out;
+            width: 70px; /* Colapsada por padrão em mobile */
+            overflow: hidden;
         }
         .sidebar.collapsed {
             width: 70px;
         }
+        .sidebar.expanded {
+            width: 256px; /* Expandida */
+        }
         .sidebar.collapsed .sidebar-text {
             display: none;
         }
-        /* Em telas maiores, a sidebar expande */
-        @media (min-width: 768px) { /* md breakpoint */
+        .sidebar.expanded .sidebar-text {
+            display: block;
+        }
+        /* Em telas maiores, a sidebar expande por padrão */
+        @media (min-width: 768px) {
             .sidebar {
-                width: 256px; /* w-64 */
+                width: 256px; /* Expandida por padrão em desktop */
             }
             .sidebar.collapsed {
                 width: 70px;
@@ -52,7 +58,7 @@
             border-radius: 0.25rem;
             cursor: pointer;
             transition: all 0.2s;
-            flex-grow: 1; /* Permite que os botões de aba cresçam para preencher o espaço */
+            flex-grow: 1;
             text-align: center;
         }
         .tab-button.active {
@@ -92,7 +98,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <!-- Botão de toggle para desktop, se necessário, ou remover para sempre expandido -->
+                <!-- Botão de toggle para desktop -->
                 <button id="toggleSidebarDesktop" class="text-white hover:text-blue-200 p-1 rounded-full hidden md:block">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -107,7 +113,7 @@
                         </svg>
                         <span class="ml-3 sidebar-text">Mesas</span>
                     </button>
-                    <button id="navAdmin" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700 mt-1 hidden"> <!-- Escondido por padrão -->
+                    <button id="navAdmin" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700 mt-1 hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
@@ -175,7 +181,7 @@
                             Adicionar Produto
                         </button>
                     </div>
-                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                    <div class="bg-white rounded-lg shadow overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -194,7 +200,7 @@
 
                 <!-- Tables Tab -->
                 <div id="tablesTabContent" class="tab-content hidden">
-                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                    <div class="bg-white rounded-lg shadow overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -235,7 +241,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                    <div class="bg-white rounded-lg shadow overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -244,8 +250,8 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desconto</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço (10%)</th> <!-- New Column -->
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Final</th> <!-- Changed to Total Final -->
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço (10%)</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Final</th>
                                 </tr>
                             </thead>
                             <tbody id="salesTableBody" class="bg-white divide-y divide-gray-200">
@@ -479,11 +485,11 @@
             productForm: document.getElementById('productForm'),
             userForm: document.getElementById('userForm'),
             itemSearch: document.getElementById('itemSearch'),
-            dateStartFilter: document.getElementById('dateStartFilter'), 
-            dateEndFilter: document.getElementById('dateEndFilter'),     
+            dateStartFilter: document.getElementById('dateStartFilter'),
+            dateEndFilter: document.getElementById('dateEndFilter'),
             periodTotal: document.getElementById('periodTotal'),
-            periodDiscountTotal: document.getElementById('periodDiscountTotal'), 
-            periodServiceChargeTotal: document.getElementById('periodServiceChargeTotal'), 
+            periodDiscountTotal: document.getElementById('periodDiscountTotal'),
+            periodServiceChargeTotal: document.getElementById('periodServiceChargeTotal'),
             adminProductsTab: document.getElementById('adminProductsTab'),
             adminTablesTab: document.getElementById('adminTablesTab'),
             adminFinanceTab: document.getElementById('adminFinanceTab'),
@@ -517,18 +523,18 @@
         document.getElementById('navMesas').addEventListener('click', () => {
             elements.mesasView.classList.remove('hidden');
             elements.adminView.classList.add('hidden');
-            // Colapsar sidebar em mobile ao navegar
             if (window.innerWidth < 768) {
                 elements.sidebar.classList.add('collapsed');
+                elements.sidebar.classList.remove('expanded');
             }
         });
 
         document.getElementById('navAdmin').addEventListener('click', () => {
             elements.mesasView.classList.add('hidden');
             elements.adminView.classList.remove('hidden');
-            // Colapsar sidebar em mobile ao navegar
             if (window.innerWidth < 768) {
                 elements.sidebar.classList.add('collapsed');
+                elements.sidebar.classList.remove('expanded');
             }
         });
 
@@ -560,20 +566,53 @@
         document.getElementById('cancelOrder').addEventListener('click', cancelOrder);
         document.getElementById('saveOrder').addEventListener('click', saveOrder);
         document.getElementById('checkoutOrder').addEventListener('click', checkoutOrder);
-        
+
         // Toggle sidebar para mobile e desktop
+        function toggleSidebar() {
+            elements.sidebar.classList.toggle('collapsed');
+            elements.sidebar.classList.toggle('expanded');
+            // Forçar reflow para evitar bugs de transição
+            elements.sidebar.offsetHeight;
+        }
+
+        // Adicionar event listeners para os botões de toggle
         document.getElementById('toggleSidebar').addEventListener('click', toggleSidebar);
         const toggleSidebarDesktop = document.getElementById('toggleSidebarDesktop');
-        if (toggleSidebarDesktop) { // Verifica se o elemento existe
+        if (toggleSidebarDesktop) {
             toggleSidebarDesktop.addEventListener('click', toggleSidebar);
         }
 
+        // Inicializar sidebar colapsada em mobile
+        function initSidebar() {
+            if (window.innerWidth < 768) {
+                elements.sidebar.classList.add('collapsed');
+                elements.sidebar.classList.remove('expanded');
+            } else {
+                elements.sidebar.classList.add('expanded');
+                elements.sidebar.classList.remove('collapsed');
+            }
+        }
+
+        // Chamar initSidebar ao carregar a página
+        document.addEventListener('DOMContentLoaded', initSidebar);
+
+        // Ajustar sidebar ao redimensionar a janela
+        window.addEventListener('resize', () => {
+            if (window.innerWidth < 768) {
+                elements.sidebar.classList.add('collapsed');
+                elements.sidebar.classList.remove('expanded');
+            } else {
+                elements.sidebar.classList.add('expanded');
+                elements.sidebar.classList.remove('collapsed');
+            }
+        });
+
         elements.discount.addEventListener('input', updateOrderTotal);
-        elements.includeServiceCharge.addEventListener('change', updateOrderTotal); // New event listener
+        elements.includeServiceCharge.addEventListener('change', updateOrderTotal);
         elements.itemSearch.addEventListener('input', filterProducts);
-        elements.dateStartFilter.addEventListener('change', filterSalesByDateRange); 
-        elements.dateEndFilter.addEventListener('change', filterSalesByDateRange);   
-        document.getElementById('applyDateFilter').addEventListener('click', filterSalesByDateRange); // Novo event listener para o botão Buscar
+        elements.dateStartFilter.addEventListener('change', filterSalesByDateRange);
+        elements.dateEndFilter.addEventListener('change', filterSalesByDateRange);
+        document.getElementById('applyDateFilter').addEventListener('click', filterSalesByDateRange);
         document.getElementById('resetDateFilter').addEventListener('click', resetDateFilter);
         document.getElementById('adminProductsTab').addEventListener('click', () => switchTab('products'));
         document.getElementById('adminTablesTab').addEventListener('click', () => switchTab('tables'));
@@ -624,7 +663,7 @@
             // Definir a data atual como padrão para os filtros de data
             const today = new Date();
             const year = today.getFullYear();
-            const month = (today.getMonth() + 1).toString().padStart(2, '0'); // Mês é base 0
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const day = today.getDate().toString().padStart(2, '0');
             const formattedDate = `${year}-${month}-${day}`;
 
@@ -642,19 +681,14 @@
             saveTablesToLocalStorage();
             saveSalesToLocalStorage();
             saveUsersToLocalStorage();
-
-            // Colapsar sidebar por padrão em telas pequenas
-            if (window.innerWidth < 768) {
-                elements.sidebar.classList.add('collapsed');
-            }
         }
 
         // Funções da área de mesas
         function addTable() {
             const newTable = {
-                id: Date.now(), // Usando timestamp como ID único
+                id: Date.now(),
                 number: state.tables.length + 1,
-                status: 'available', // available, occupied, reserved
+                status: 'available',
                 order: null
             };
             state.tables.push(newTable);
@@ -666,7 +700,7 @@
         }
 
         function deleteTable(tableId) {
-            if (confirm('Tem certeza que deseja excluir esta mesa? Esta ação não pode ser desfeita.')) {
+            if (confirm('Tem certeza que deseja excluir esta mesa? Esta ação não pode be desfeita.')) {
                 state.tables = state.tables.filter(t => t.id !== tableId);
                 saveTablesToLocalStorage();
                 renderTables();
@@ -729,7 +763,6 @@
                 elements.tablesTableBody.appendChild(row);
             });
             
-            // Adicionar event listeners para exclusão
             document.querySelectorAll('.delete-table').forEach(button => {
                 button.addEventListener('click', function() {
                     const tableId = parseInt(this.getAttribute('data-id'));
@@ -742,29 +775,26 @@
             state.currentTable = table;
             document.getElementById('modalTableNumber').textContent = table.number;
             
-            // Se há um pedido existente para esta mesa, carregá-lo
-            // Garante que serviceChargePercentage e serviceChargeAmount sejam inicializados
             state.currentOrder = table.order ? {
-                ...table.order, // Copia todas as propriedades existentes
-                serviceChargePercentage: table.order.serviceChargePercentage || 0, // Garante que seja 0 se não existir
-                serviceChargeAmount: table.order.serviceChargeAmount || 0          // Garante que seja 0 se não existir
+                ...table.order,
+                serviceChargePercentage: table.order.serviceChargePercentage || 0,
+                serviceChargeAmount: table.order.serviceChargeAmount || 0
             } : {
                 items: [],
                 subtotal: 0,
                 discount: 0,
                 total: 0,
-                serviceChargePercentage: 10, // PADRÃO: Taxa de serviço de 10%
-                serviceChargeAmount: 0,     
+                serviceChargePercentage: 10,
+                serviceChargeAmount: 0,
                 status: 'open'
             };
 
-            // Sincroniza o estado do checkbox com o serviceChargePercentage do pedido
             elements.includeServiceCharge.checked = state.currentOrder.serviceChargePercentage > 0;
-            elements.discount.value = state.currentOrder.discount; // Garante que o desconto seja carregado
+            elements.discount.value = state.currentOrder.discount;
             
             renderProductsForOrder();
             renderOrderSummary();
-            updateOrderTotal(); // Chama updateOrderTotal para recalcular e exibir os valores
+            updateOrderTotal();
             
             document.getElementById('orderModal').classList.remove('hidden');
         }
@@ -869,7 +899,6 @@
                 elements.orderSummary.appendChild(itemElement);
             });
             
-            // Adicionar event listeners para os botões de ação
             document.querySelectorAll('.remove-item').forEach(button => {
                 button.addEventListener('click', function() {
                     const index = parseInt(this.getAttribute('data-index'));
@@ -915,13 +944,10 @@
         function updateOrderTotal() {
             state.currentOrder.subtotal = state.currentOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             
-            // Obter desconto do input
             state.currentOrder.discount = parseFloat(elements.discount.value) || 0;
             
-            // Calcular total após desconto
             let totalAfterDiscount = state.currentOrder.subtotal - (state.currentOrder.subtotal * (state.currentOrder.discount / 100));
             
-            // Calcular taxa de serviço (10%)
             if (elements.includeServiceCharge.checked) {
                 state.currentOrder.serviceChargePercentage = 10;
                 state.currentOrder.serviceChargeAmount = totalAfterDiscount * 0.10;
@@ -930,11 +956,10 @@
                 state.currentOrder.serviceChargeAmount = 0;
             }
 
-            // Calcular total final
             state.currentOrder.total = totalAfterDiscount + state.currentOrder.serviceChargeAmount;
             
             elements.subtotal.textContent = `R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`;
-            elements.serviceChargeAmount.textContent = `R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`; // Update service charge display
+            elements.serviceChargeAmount.textContent = `R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`;
             elements.total.textContent = `R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`;
         }
 
@@ -951,13 +976,11 @@
                 state.tables[tableIndex].status = 'occupied';
                 saveTablesToLocalStorage();
                 
-                // Atualizar o status na exibição das mesas
                 renderTables();
                 if (state.currentUser.role === 'admin') {
                     renderTablesForAdmin();
                 }
                 
-                // Mostrar mensagem de sucesso
                 alert('Pedido salvo com sucesso!');
             }
             
@@ -969,30 +992,26 @@
                 const tableIndex = state.tables.findIndex(t => t.id === state.currentTable.id);
                 
                 if (tableIndex !== -1) {
-                    // Registrar a venda no histórico
                     const sale = {
                         id: Date.now(),
                         date: new Date().toISOString(),
                         tableNumber: state.tables[tableIndex].number,
-                        items: [...state.currentOrder.items], 
+                        items: [...state.currentOrder.items],
                         subtotal: state.currentOrder.subtotal,
                         discount: state.currentOrder.discount,
-                        serviceChargePercentage: state.currentOrder.serviceChargePercentage, // Save service charge percentage
-                        serviceChargeAmount: state.currentOrder.serviceChargeAmount,     // Save service charge amount
+                        serviceChargePercentage: state.currentOrder.serviceChargePercentage,
+                        serviceChargeAmount: state.currentOrder.serviceChargeAmount,
                         total: state.currentOrder.total
                     };
                     state.sales.push(sale);
                     saveSalesToLocalStorage();
                     
-                    // Limpar o pedido da mesa
                     state.tables[tableIndex].order = null;
                     state.tables[tableIndex].status = 'available';
                     saveTablesToLocalStorage();
 
-                    // Resetar o desconto para o próximo pedido
-                    elements.discount.value = 0; 
+                    elements.discount.value = 0;
                     
-                    // Mostrar mensagem de sucesso
                     alert('Pedido finalizado com sucesso!');
                 }
                 
@@ -1003,7 +1022,6 @@
             }
         }
 
-        // Funções da área administrativa (somente para admin)
         function renderProductsForAdmin() {
             elements.productsTableBody.innerHTML = '';
             
@@ -1029,7 +1047,6 @@
                 elements.productsTableBody.appendChild(row);
             });
             
-            // Adicionar event listeners para edição/exclusão
             document.querySelectorAll('.edit-product').forEach(button => {
                 button.addEventListener('click', function() {
                     const productId = parseInt(this.getAttribute('data-id'));
@@ -1079,7 +1096,6 @@
                 document.getElementById('productCategory').value = product.category;
                 document.getElementById('productPrice').value = product.price;
                 
-                // Alterar o formulário para modo de edição
                 elements.productForm.removeEventListener('submit', saveProduct);
                 elements.productForm.addEventListener('submit', function updateHandler(e) {
                     e.preventDefault();
@@ -1099,7 +1115,6 @@
                         document.getElementById('addProductModal').classList.add('hidden');
                         alert('Produto atualizado com sucesso!');
                         
-                        // Restaurar o listener original
                         elements.productForm.removeEventListener('submit', updateHandler);
                         elements.productForm.addEventListener('submit', saveProduct);
                     } else {
@@ -1120,7 +1135,6 @@
             }
         }
 
-        // Funções para gerenciamento de usuários (somente admin)
         function renderUsersForAdmin() {
             elements.usersTableBody.innerHTML = '';
             
@@ -1142,7 +1156,6 @@
                 elements.usersTableBody.appendChild(row);
             });
             
-            // Adicionar event listeners para exclusão
             document.querySelectorAll('.delete-user').forEach(button => {
                 button.addEventListener('click', function() {
                     const username = this.getAttribute('data-username');
@@ -1166,7 +1179,7 @@
                 const newUser = {
                     username: newUsername,
                     password: newPassword,
-                    role: 'vendedor' // Novos usuários são vendedores
+                    role: 'vendedor'
                 };
                 
                 state.users.push(newUser);
@@ -1189,21 +1202,20 @@
             }
         }
 
-        // Funções do financeiro
         function renderSales() {
             if (!elements.salesTableBody) return;
             
             elements.salesTableBody.innerHTML = '';
             
             let totalPeriod = 0;
-            let totalDiscount = 0; 
-            let totalServiceCharge = 0; 
+            let totalDiscount = 0;
+            let totalServiceCharge = 0;
             const filteredSales = filterSales();
             
             filteredSales.forEach(sale => {
                 totalPeriod += sale.total;
-                totalDiscount += (sale.subtotal * (sale.discount / 100)); 
-                totalServiceCharge += (sale.serviceChargeAmount || 0); 
+                totalDiscount += (sale.subtotal * (sale.discount / 100));
+                totalServiceCharge += (sale.serviceChargeAmount || 0);
                 
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
@@ -1232,7 +1244,7 @@
                         <div class="text-sm text-gray-900">${sale.discount}%</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}</div>
+                        <div class="text-sm text-gray-900">R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace("." , ",") : '0,00'}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">R$ ${sale.total.toFixed(2).replace('.', ',')}</div>
@@ -1243,45 +1255,39 @@
             });
             
             elements.periodTotal.textContent = `R$ ${totalPeriod.toFixed(2).replace('.', ',')}`;
-            elements.periodDiscountTotal.textContent = `R$ ${totalDiscount.toFixed(2).replace('.', ',')}`; 
-            elements.periodServiceChargeTotal.textContent = `R$ ${totalServiceCharge.toFixed(2).replace('.', ',')}`; 
+            elements.periodDiscountTotal.textContent = `R$ ${totalDiscount.toFixed(2).replace('.', ',')}`;
+            elements.periodServiceChargeTotal.textContent = `R$ ${totalServiceCharge.toFixed(2).replace('.', ',')}`;
         }
 
         function filterSales() {
             const startDateValue = elements.dateStartFilter.value;
             const endDateValue = elements.dateEndFilter.value;
             
-            // Se nenhuma data for selecionada, retorna todas as vendas
             if (!startDateValue && !endDateValue) {
-                return state.sales; 
+                return state.sales;
             }
 
             let startDate = null;
             let endDate = null;
 
             if (startDateValue) {
-                // Cria a data no fuso horário local para evitar problemas de deslocamento
-                startDate = new Date(startDateValue + 'T00:00:00'); // Adiciona 'T00:00:00' para garantir que seja meia-noite local
+                startDate = new Date(startDateValue + 'T00:00:00');
             }
             if (endDateValue) {
-                // Cria a data no fuso horário local para evitar problemas de deslocamento
-                endDate = new Date(endDateValue + 'T23:59:59.999'); // Adiciona 'T23:59:59.999' para garantir o final do dia local
+                endDate = new Date(endDateValue + 'T23:59:59.999');
             }
 
             return state.sales.filter(sale => {
-                // Normaliza a data da venda para o início do dia para comparação
                 const saleDate = new Date(sale.date);
                 const normalizedSaleDate = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
                 
                 let isAfterStartDate = true;
                 if (startDate) {
-                    // Compara a data normalizada da venda com o início do dia do filtro
                     isAfterStartDate = normalizedSaleDate >= new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
                 }
 
                 let isBeforeEndDate = true;
                 if (endDate) {
-                    // Compara a data normalizada da venda com o início do dia seguinte ao endDate
                     const nextDayEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
                     isBeforeEndDate = normalizedSaleDate < nextDayEndDate;
                 }
@@ -1290,7 +1296,7 @@
             });
         }
 
-        function filterSalesByDateRange() { 
+        function filterSalesByDateRange() {
             renderSales();
         }
 
@@ -1312,7 +1318,6 @@
             
             const doc = new jsPDF();
             
-            // Configurações do documento
             let fileName = 'Relatorio_Vendas_Completo.pdf';
             if (startDateValue && endDateValue) {
                 fileName = `Relatorio_Vendas_${startDateValue.replace(/-/g, '_')}_a_${endDateValue.replace(/-/g, '_')}.pdf`;
@@ -1322,7 +1327,6 @@
                 fileName = `Relatorio_Vendas_Ate_${endDateValue.replace(/-/g, '_')}.pdf`;
             }
             
-            // Cabeçalho
             doc.setFontSize(18);
             doc.setTextColor(40);
             doc.text('Relatório de Vendas - Barraquinha', 15, 15);
@@ -1342,8 +1346,7 @@
                 doc.text('Período: Todas as vendas', 15, 25);
             }
             
-            // Dados da tabela
-            const headers = [['Data/Hora', 'Mesa', 'Itens', 'Subtotal', 'Desconto', 'Serviço (10%)', 'Total Final']]; 
+            const headers = [['Data/Hora', 'Mesa', 'Itens', 'Subtotal', 'Desconto', 'Serviço (10%)', 'Total Final']];
             const data = filteredSales.map(sale => {
                 const saleDate = new Date(sale.date);
                 const formattedDate = saleDate.toLocaleDateString('pt-BR');
@@ -1356,17 +1359,15 @@
                     items,
                     `R$ ${sale.subtotal.toFixed(2).replace('.', ',')}`,
                     `${sale.discount}%`,
-                    `R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}`, 
+                    `R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}`,
                     `R$ ${sale.total.toFixed(2).replace('.', ',')}`
                 ];
             });
             
-            // Calcular totais para o rodapé do PDF
             const totalPeriod = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
             const totalDiscount = filteredSales.reduce((sum, sale) => sum + (sale.subtotal * (sale.discount/100)), 0);
-            const totalServiceCharge = filteredSales.reduce((sum, sale) => sum + (sale.serviceChargeAmount || 0), 0); 
+            const totalServiceCharge = filteredSales.reduce((sum, sale) => sum + (sale.serviceChargeAmount || 0), 0);
 
-            // Adicionar tabela
             doc.autoTable({
                 head: headers,
                 body: data,
@@ -1380,11 +1381,11 @@
                 columnStyles: {
                     0: { cellWidth: 25 },
                     1: { cellWidth: 15 },
-                    2: { cellWidth: 45 }, 
+                    2: { cellWidth: 45 },
                     3: { cellWidth: 20 },
                     4: { cellWidth: 20 },
-                    5: { cellWidth: 25 }, 
-                    6: { cellWidth: 20 }  
+                    5: { cellWidth: 25 },
+                    6: { cellWidth: 20 }
                 },
                 styles: {
                     fontSize: 10,
@@ -1394,7 +1395,6 @@
                 margin: { left: 15 }
             });
             
-            // Adicionar totais no rodapé
             const finalY = doc.lastAutoTable.finalY + 10;
             doc.setFontSize(12);
             doc.setTextColor(0);
@@ -1404,23 +1404,18 @@
             doc.text(`Total de Serviço (10%): R$ ${totalServiceCharge.toFixed(2).replace('.', ',')}`, 15, finalY + 8);
             doc.text(`Total do Período: R$ ${totalPeriod.toFixed(2).replace('.', ',')}`, 15, finalY + 16);
             
-            // Salvar PDF
             doc.save(fileName);
         }
 
-        // Funções de navegação entre abas
         function switchTab(tab) {
-            // Desativar todas as abas
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.classList.remove('active');
             });
             
-            // Esconder todos os conteúdos
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');
             });
             
-            // Ativar a aba selecionada
             if (tab === 'products') {
                 elements.adminProductsTab.classList.add('active');
                 elements.productsTabContent.classList.remove('hidden');
@@ -1436,7 +1431,6 @@
             }
         }
 
-        // Funções utilitárias
         function saveProductsToLocalStorage() {
             localStorage.setItem('products', JSON.stringify(state.products));
         }
@@ -1451,10 +1445,6 @@
 
         function saveUsersToLocalStorage() {
             localStorage.setItem('users', JSON.stringify(state.users));
-        }
-
-        function toggleSidebar() {
-            elements.sidebar.classList.toggle('collapsed');
         }
     </script>
 </body>
