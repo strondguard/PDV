@@ -62,7 +62,27 @@
     </style>
 </head>
 <body class="bg-gray-100">
-    <div class="flex flex-col md:flex-row h-screen overflow-y-auto md:overflow-hidden">
+    <!-- Login Modal (Inicial) -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Login</h2>
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Usuário</label>
+                    <input id="username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Digite seu usuário" required>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Senha</label>
+                    <input id="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="********" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="mainApp" class="flex flex-col md:flex-row h-screen overflow-y-auto md:overflow-hidden hidden">
         <!-- Sidebar -->
         <div id="sidebar" class="sidebar bg-blue-800 text-white flex-shrink-0 flex flex-col">
             <div class="p-4 flex items-center justify-between border-b border-blue-700">
@@ -87,7 +107,7 @@
                         </svg>
                         <span class="ml-3 sidebar-text">Mesas</span>
                     </button>
-                    <button id="navAdmin" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700 mt-1">
+                    <button id="navAdmin" class="flex items-center w-full p-3 rounded-lg hover:bg-blue-700 mt-1 hidden"> <!-- Escondido por padrão -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
@@ -98,13 +118,16 @@
             <div class="p-4 border-t border-blue-700">
                 <div class="flex items-center">
                     <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
-                        <span class="text-white font-bold">AD</span>
+                        <span id="userAvatar" class="text-white font-bold">AD</span>
                     </div>
                     <div class="ml-3 sidebar-text">
-                        <p class="text-sm font-medium">Admin</p>
+                        <p id="userNameDisplay" class="text-sm font-medium">Admin</p>
                         <p class="text-xs text-blue-200">Sessão iniciada</p>
                     </div>
                 </div>
+                <button id="sidebarLogout" class="mt-2 w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg sidebar-text">
+                    Sair
+                </button>
             </div>
         </div>
 
@@ -131,140 +154,144 @@
 
             <!-- Admin View -->
             <div id="adminView" class="hidden">
-                <div id="loginSection" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl mt-10">
-                    <div class="p-8">
-                        <div class="text-center mb-6">
-                            <h2 class="text-2xl font-bold text-gray-800">Área Administrativa</h2>
-                            <p class="text-gray-600 mt-2">Digite a senha para acessar</p>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
-                                Senha
-                            </label>
-                            <input id="adminPassword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="********">
-                        </div>
-                        <button id="loginButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                            Acessar
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Painel Administrativo</h2>
+                </div>
+
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mb-6 border-b pb-2">
+                    <button id="adminProductsTab" class="tab-button active">Produtos</button>
+                    <button id="adminTablesTab" class="tab-button">Mesas</button>
+                    <button id="adminFinanceTab" class="tab-button">Financeiro</button>
+                    <button id="adminUsersTab" class="tab-button">Usuários</button>
+                </div>
+
+                <!-- Products Tab -->
+                <div id="productsTabContent" class="tab-content">
+                    <div class="flex justify-end mb-4">
+                        <button id="addProductButton" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Adicionar Produto
                         </button>
+                    </div>
+                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Products will be added here -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <div id="adminDashboard" class="hidden">
-                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Painel Administrativo</h2>
-                        <button id="logoutButton" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">
-                            Sair
-                        </button>
+                <!-- Tables Tab -->
+                <div id="tablesTabContent" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablesTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Tables will be added here -->
+                            </tbody>
+                        </table>
                     </div>
+                </div>
 
-                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mb-6 border-b pb-2">
-                        <button id="adminProductsTab" class="tab-button active">Produtos</button>
-                        <button id="adminTablesTab" class="tab-button">Mesas</button>
-                        <button id="adminFinanceTab" class="tab-button">Financeiro</button>
-                    </div>
-
-                    <!-- Products Tab -->
-                    <div id="productsTabContent" class="tab-content">
-                        <div class="flex justify-end mb-4">
-                            <button id="addProductButton" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                Adicionar Produto
+                <!-- Finance Tab -->
+                <div id="financeTabContent" class="tab-content hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0">
+                        <div class="w-full sm:w-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                            <div>
+                                <label for="dateStartFilter" class="block text-sm font-medium text-gray-700">Data Inicial:</label>
+                                <input type="date" id="dateStartFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="dateEndFilter" class="block text-sm font-medium text-gray-700">Data Final:</label>
+                                <input type="date" id="dateEndFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div class="flex w-full sm:w-auto space-x-2">
+                            <button id="applyDateFilter" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                                Buscar
+                            </button>
+                            <button id="resetDateFilter" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                                Limpar Filtro
+                            </button>
+                            <button id="generatePDF" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                                Gerar PDF
                             </button>
                         </div>
-                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Products will be added here -->
-                                </tbody>
-                            </table>
+                    </div>
+                    <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mesa</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desconto</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço (10%)</th> <!-- New Column -->
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Final</th> <!-- Changed to Total Final -->
+                                </tr>
+                            </thead>
+                            <tbody id="salesTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Sales will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 p-4 bg-gray-100 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Total do Período:</span>
+                            <span id="periodTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="font-medium">Total de Descontos:</span>
+                            <span id="periodDiscountTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="font-medium">Total de Serviço (10%):</span>
+                            <span id="periodServiceChargeTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Tables Tab -->
-                    <div id="tablesTabContent" class="tab-content hidden">
-                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablesTableBody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Tables will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
+                <!-- Users Tab -->
+                <div id="usersTabContent" class="tab-content hidden">
+                    <div class="flex justify-end mb-4">
+                        <button id="addUserButton" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Adicionar Usuário
+                        </button>
                     </div>
-
-                    <!-- Finance Tab -->
-                    <div id="financeTabContent" class="tab-content hidden">
-                        <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0">
-                            <div class="w-full sm:w-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-                                <div>
-                                    <label for="dateStartFilter" class="block text-sm font-medium text-gray-700">Data Inicial:</label>
-                                    <input type="date" id="dateStartFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label for="dateEndFilter" class="block text-sm font-medium text-gray-700">Data Final:</label>
-                                    <input type="date" id="dateEndFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                </div>
-                            </div>
-                            <div class="flex w-full sm:w-auto space-x-2">
-                                <button id="applyDateFilter" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-                                    Buscar
-                                </button>
-                                <button id="resetDateFilter" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
-                                    Limpar Filtro
-                                </button>
-                                <button id="generatePDF" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
-                                    Gerar PDF
-                                </button>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-lg shadow overflow-x-auto"> <!-- Added overflow-x-auto -->
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mesa</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desconto</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço (10%)</th> <!-- New Column -->
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Final</th> <!-- Changed to Total Final -->
-                                    </tr>
-                                </thead>
-                                <tbody id="salesTableBody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Sales will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="mt-4 p-4 bg-gray-100 rounded-lg">
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium">Total do Período:</span>
-                                <span id="periodTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
-                            </div>
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="font-medium">Total de Descontos:</span>
-                                <span id="periodDiscountTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
-                            </div>
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="font-medium">Total de Serviço (10%):</span>
-                                <span id="periodServiceChargeTotal" class="font-bold text-lg text-blue-600">R$ 0,00</span>
-                            </div>
-                        </div>
+                    <div class="bg-white rounded-lg shadow overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Users will be added here -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -294,6 +321,38 @@
                             </div>
                             <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4">
                                 <button type="button" id="cancelProduct" class="w-full sm:w-auto bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                                    Cancelar
+                                </button>
+                                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Add User Modal -->
+                <div id="addUserModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Adicionar Usuário</h3>
+                            <button id="closeUserModal" class="text-gray-500 hover:text-gray-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <form id="userForm">
+                            <div class="mb-4">
+                                <label for="newUsername" class="block text-gray-700 text-sm font-bold mb-2">Usuário</label>
+                                <input type="text" id="newUsername" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="newPassword" class="block text-gray-700 text-sm font-bold mb-2">Senha</label>
+                                <input type="password" id="newPassword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4">
+                                <button type="button" id="cancelUser" class="w-full sm:w-auto bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
                                     Cancelar
                                 </button>
                                 <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
@@ -387,33 +446,38 @@
                 { id: 4, name: 'Sanduíche', category: 'Lanches', price: 18.00 },
             ],
             sales: JSON.parse(localStorage.getItem('sales')) || [],
-            adminPassword: 'barrinha123',
+            users: JSON.parse(localStorage.getItem('users')) || [{ username: 'eddy', password: '741', role: 'admin' }],
+            currentUser: null,
             currentTable: null,
-            currentOrder: null,
-            isAdmin: false
+            currentOrder: null
         };
 
         // Elementos do DOM
         const elements = {
+            loginModal: document.getElementById('loginModal'),
+            mainApp: document.getElementById('mainApp'),
+            loginForm: document.getElementById('loginForm'),
             mesasView: document.getElementById('mesasView'),
             adminView: document.getElementById('adminView'),
-            loginSection: document.getElementById('loginSection'),
-            adminDashboard: document.getElementById('adminDashboard'),
+            navAdmin: document.getElementById('navAdmin'),
             tablesGrid: document.getElementById('tablesGrid'),
             tablesTableBody: document.getElementById('tablesTableBody'),
             productsTableBody: document.getElementById('productsTableBody'),
             salesTableBody: document.getElementById('salesTableBody'),
+            usersTableBody: document.getElementById('usersTableBody'),
             productsList: document.getElementById('productsList'),
             orderSummary: document.getElementById('orderSummary'),
             orderModal: document.getElementById('orderModal'),
             addProductModal: document.getElementById('addProductModal'),
+            addUserModal: document.getElementById('addUserModal'),
             sidebar: document.getElementById('sidebar'),
             subtotal: document.getElementById('subtotal'),
             total: document.getElementById('total'),
             discount: document.getElementById('discount'),
-            serviceChargeAmount: document.getElementById('serviceChargeAmount'), // New element
-            includeServiceCharge: document.getElementById('includeServiceCharge'), // New element
+            serviceChargeAmount: document.getElementById('serviceChargeAmount'),
+            includeServiceCharge: document.getElementById('includeServiceCharge'),
             productForm: document.getElementById('productForm'),
+            userForm: document.getElementById('userForm'),
             itemSearch: document.getElementById('itemSearch'),
             dateStartFilter: document.getElementById('dateStartFilter'), 
             dateEndFilter: document.getElementById('dateEndFilter'),     
@@ -423,13 +487,33 @@
             adminProductsTab: document.getElementById('adminProductsTab'),
             adminTablesTab: document.getElementById('adminTablesTab'),
             adminFinanceTab: document.getElementById('adminFinanceTab'),
+            adminUsersTab: document.getElementById('adminUsersTab'),
             productsTabContent: document.getElementById('productsTabContent'),
             tablesTabContent: document.getElementById('tablesTabContent'),
             financeTabContent: document.getElementById('financeTabContent'),
-            generatePDF: document.getElementById('generatePDF')
+            usersTabContent: document.getElementById('usersTabContent'),
+            generatePDF: document.getElementById('generatePDF'),
+            userNameDisplay: document.getElementById('userNameDisplay'),
+            userAvatar: document.getElementById('userAvatar')
         };
 
+        // Verificar se há usuário logado no localStorage ao carregar a página
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            state.currentUser = JSON.parse(storedUser);
+            elements.loginModal.classList.add('hidden');
+            elements.mainApp.classList.remove('hidden');
+            elements.userNameDisplay.textContent = state.currentUser.username;
+            elements.userAvatar.textContent = state.currentUser.username.substring(0, 2).toUpperCase();
+            if (state.currentUser.role === 'admin') {
+                elements.navAdmin.classList.remove('hidden');
+            }
+            initApp();
+        }
+
         // Event Listeners
+        elements.loginForm.addEventListener('submit', handleLogin);
+
         document.getElementById('navMesas').addEventListener('click', () => {
             elements.mesasView.classList.remove('hidden');
             elements.adminView.classList.add('hidden');
@@ -442,11 +526,6 @@
         document.getElementById('navAdmin').addEventListener('click', () => {
             elements.mesasView.classList.add('hidden');
             elements.adminView.classList.remove('hidden');
-            
-            if (!state.isAdmin) {
-                elements.loginSection.classList.remove('hidden');
-                elements.adminDashboard.classList.add('hidden');
-            }
             // Colapsar sidebar em mobile ao navegar
             if (window.innerWidth < 768) {
                 elements.sidebar.classList.add('collapsed');
@@ -454,17 +533,26 @@
         });
 
         document.getElementById('addTable').addEventListener('click', addTable);
-        document.getElementById('loginButton').addEventListener('click', adminLogin);
-        document.getElementById('logoutButton').addEventListener('click', adminLogout);
+        document.getElementById('sidebarLogout').addEventListener('click', handleLogout);
         document.getElementById('addProductButton').addEventListener('click', () => {
             document.getElementById('addProductModal').classList.remove('hidden');
             document.getElementById('productForm').reset();
+        });
+        document.getElementById('addUserButton').addEventListener('click', () => {
+            document.getElementById('addUserModal').classList.remove('hidden');
+            document.getElementById('userForm').reset();
         });
         document.getElementById('closeProductModal').addEventListener('click', () => {
             document.getElementById('addProductModal').classList.add('hidden');
         });
         document.getElementById('cancelProduct').addEventListener('click', () => {
             document.getElementById('addProductModal').classList.add('hidden');
+        });
+        document.getElementById('closeUserModal').addEventListener('click', () => {
+            document.getElementById('addUserModal').classList.add('hidden');
+        });
+        document.getElementById('cancelUser').addEventListener('click', () => {
+            document.getElementById('addUserModal').classList.add('hidden');
         });
         document.getElementById('closeOrderModal').addEventListener('click', () => {
             document.getElementById('orderModal').classList.add('hidden');
@@ -490,13 +578,49 @@
         document.getElementById('adminProductsTab').addEventListener('click', () => switchTab('products'));
         document.getElementById('adminTablesTab').addEventListener('click', () => switchTab('tables'));
         document.getElementById('adminFinanceTab').addEventListener('click', () => switchTab('finance'));
+        document.getElementById('adminUsersTab').addEventListener('click', () => switchTab('users'));
         document.getElementById('generatePDF').addEventListener('click', generateSalesPDF);
 
         elements.productForm.addEventListener('submit', saveProduct);
-        
+        elements.userForm.addEventListener('submit', saveUser);
+
+        // Funções de login e logout
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const user = state.users.find(u => u.username === username && u.password === password);
+            if (user) {
+                state.currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                elements.loginModal.classList.add('hidden');
+                elements.mainApp.classList.remove('hidden');
+                elements.userNameDisplay.textContent = user.username;
+                elements.userAvatar.textContent = user.username.substring(0, 2).toUpperCase();
+                if (user.role === 'admin') {
+                    elements.navAdmin.classList.remove('hidden');
+                }
+                initApp();
+            } else {
+                alert('Usuário ou senha incorretos!');
+            }
+        }
+
+        function handleLogout() {
+            state.currentUser = null;
+            localStorage.removeItem('currentUser');
+            elements.mainApp.classList.add('hidden');
+            elements.loginModal.classList.remove('hidden');
+            elements.navAdmin.classList.add('hidden');
+            elements.mesasView.classList.remove('hidden');
+            elements.adminView.classList.add('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
 
         // Funções de inicialização
-        function init() {
+        function initApp() {
             // Definir a data atual como padrão para os filtros de data
             const today = new Date();
             const year = today.getFullYear();
@@ -508,12 +632,16 @@
             elements.dateEndFilter.value = formattedDate;
 
             renderTables();
-            renderProductsForAdmin();
-            renderTablesForAdmin();
-            renderSales(); // Chame renderSales após definir as datas para aplicar o filtro inicial
+            if (state.currentUser.role === 'admin') {
+                renderProductsForAdmin();
+                renderTablesForAdmin();
+                renderSales();
+                renderUsersForAdmin();
+            }
             saveProductsToLocalStorage();
             saveTablesToLocalStorage();
             saveSalesToLocalStorage();
+            saveUsersToLocalStorage();
 
             // Colapsar sidebar por padrão em telas pequenas
             if (window.innerWidth < 768) {
@@ -532,7 +660,9 @@
             state.tables.push(newTable);
             saveTablesToLocalStorage();
             renderTables();
-            renderTablesForAdmin();
+            if (state.currentUser.role === 'admin') {
+                renderTablesForAdmin();
+            }
         }
 
         function deleteTable(tableId) {
@@ -823,7 +953,9 @@
                 
                 // Atualizar o status na exibição das mesas
                 renderTables();
-                renderTablesForAdmin();
+                if (state.currentUser.role === 'admin') {
+                    renderTablesForAdmin();
+                }
                 
                 // Mostrar mensagem de sucesso
                 alert('Pedido salvo com sucesso!');
@@ -865,32 +997,13 @@
                 }
                 
                 document.getElementById('orderModal').classList.add('hidden');
+                if (state.currentUser.role === 'admin') {
+                    renderSales();
+                }
             }
         }
 
-        // Funções da área administrativa
-        function adminLogin() {
-            const password = document.getElementById('adminPassword').value;
-            
-            if (password === state.adminPassword) {
-                state.isAdmin = true;
-                elements.loginSection.classList.add('hidden');
-                elements.adminDashboard.classList.remove('hidden');
-                renderProductsForAdmin();
-                renderTablesForAdmin();
-                renderSales();
-            } else {
-                alert('Senha incorreta!');
-            }
-        }
-
-        function adminLogout() {
-            state.isAdmin = false;
-            elements.loginSection.classList.remove('hidden');
-            elements.adminDashboard.classList.add('hidden');
-            document.getElementById('adminPassword').value = '';
-        }
-
+        // Funções da área administrativa (somente para admin)
         function renderProductsForAdmin() {
             elements.productsTableBody.innerHTML = '';
             
@@ -967,8 +1080,8 @@
                 document.getElementById('productPrice').value = product.price;
                 
                 // Alterar o formulário para modo de edição
-                document.getElementById('productForm').removeEventListener('submit', saveProduct);
-                document.getElementById('productForm').addEventListener('submit', function(e) {
+                elements.productForm.removeEventListener('submit', saveProduct);
+                elements.productForm.addEventListener('submit', function updateHandler(e) {
                     e.preventDefault();
                     
                     const productName = document.getElementById('productName').value;
@@ -987,8 +1100,8 @@
                         alert('Produto atualizado com sucesso!');
                         
                         // Restaurar o listener original
-                        document.getElementById('productForm').removeEventListener('submit', arguments.callee);
-                        document.getElementById('productForm').addEventListener('submit', saveProduct);
+                        elements.productForm.removeEventListener('submit', updateHandler);
+                        elements.productForm.addEventListener('submit', saveProduct);
                     } else {
                         alert('Por favor, preencha todos os campos corretamente!');
                     }
@@ -1004,6 +1117,75 @@
                 saveProductsToLocalStorage();
                 renderProductsForAdmin();
                 alert('Produto excluído com sucesso!');
+            }
+        }
+
+        // Funções para gerenciamento de usuários (somente admin)
+        function renderUsersForAdmin() {
+            elements.usersTableBody.innerHTML = '';
+            
+            state.users.forEach(user => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${user.username}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${user.role === 'admin' ? 'Administrador' : 'Vendedor'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        ${user.role !== 'admin' ? `<button class="delete-user text-red-600 hover:text-red-900" data-username="${user.username}">Excluir</button>` : ''}
+                    </td>
+                `;
+                
+                elements.usersTableBody.appendChild(row);
+            });
+            
+            // Adicionar event listeners para exclusão
+            document.querySelectorAll('.delete-user').forEach(button => {
+                button.addEventListener('click', function() {
+                    const username = this.getAttribute('data-username');
+                    deleteUser(username);
+                });
+            });
+        }
+
+        function saveUser(e) {
+            e.preventDefault();
+            
+            const newUsername = document.getElementById('newUsername').value;
+            const newPassword = document.getElementById('newPassword').value;
+            
+            if (newUsername && newPassword) {
+                if (state.users.some(u => u.username === newUsername)) {
+                    alert('Usuário já existe!');
+                    return;
+                }
+                
+                const newUser = {
+                    username: newUsername,
+                    password: newPassword,
+                    role: 'vendedor' // Novos usuários são vendedores
+                };
+                
+                state.users.push(newUser);
+                saveUsersToLocalStorage();
+                renderUsersForAdmin();
+                
+                document.getElementById('addUserModal').classList.add('hidden');
+                alert('Usuário adicionado com sucesso!');
+            } else {
+                alert('Por favor, preencha todos os campos!');
+            }
+        }
+
+        function deleteUser(username) {
+            if (confirm('Tem certeza que deseja excluir este usuário?')) {
+                state.users = state.users.filter(u => u.username !== username);
+                saveUsersToLocalStorage();
+                renderUsersForAdmin();
+                alert('Usuário excluído com sucesso!');
             }
         }
 
@@ -1248,6 +1430,9 @@
             } else if (tab === 'finance') {
                 elements.adminFinanceTab.classList.add('active');
                 elements.financeTabContent.classList.remove('hidden');
+            } else if (tab === 'users') {
+                elements.adminUsersTab.classList.add('active');
+                elements.usersTabContent.classList.remove('hidden');
             }
         }
 
@@ -1264,12 +1449,13 @@
             localStorage.setItem('sales', JSON.stringify(state.sales));
         }
 
+        function saveUsersToLocalStorage() {
+            localStorage.setItem('users', JSON.stringify(state.users));
+        }
+
         function toggleSidebar() {
             elements.sidebar.classList.toggle('collapsed');
         }
-
-        // Inicializar a aplicação
-        init();
     </script>
 </body>
 </html>
