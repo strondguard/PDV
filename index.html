@@ -291,6 +291,7 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
@@ -452,7 +453,7 @@
                 { id: 4, name: 'Sanduíche', category: 'Lanches', price: 18.00 },
             ],
             sales: JSON.parse(localStorage.getItem('sales')) || [],
-            users: JSON.parse(localStorage.getItem('users')) || [{ username: 'eddy', password: '741', role: 'admin' }],
+            users: JSON.parse(localStorage.getItem('users')) || [{ username: 'eddy', password: '741', role: 'admin', active: true }],
             currentUser: null,
             currentTable: null,
             currentOrder: null
@@ -507,6 +508,10 @@
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
             state.currentUser = JSON.parse(storedUser);
+            if (state.currentUser.active === undefined) {
+                state.currentUser.active = true;
+                localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+            }
             elements.loginModal.classList.add('hidden');
             elements.mainApp.classList.remove('hidden');
             elements.userNameDisplay.textContent = state.currentUser.username;
@@ -516,6 +521,12 @@
             }
             initApp();
         }
+
+        // Garantir que todos os usuários tenham o campo active
+        state.users.forEach(user => {
+            if (user.active === undefined) user.active = true;
+        });
+        saveUsersToLocalStorage();
 
         // Event Listeners
         elements.loginForm.addEventListener('submit', handleLogin);
@@ -681,6 +692,12 @@
             saveTablesToLocalStorage();
             saveSalesToLocalStorage();
             saveUsersToLocalStorage();
+
+            // Esconder botão de adicionar mesa para vendedores
+            const addTableBtn = document.getElementById('addTable');
+            if (addTableBtn) {
+                addTableBtn.style.display = (state.currentUser.role === 'admin') ? 'flex' : 'none';
+            }
         }
 
         // Funções da área de mesas
@@ -700,7 +717,7 @@
         }
 
         function deleteTable(tableId) {
-            if (confirm('Tem certeza que deseja excluir esta mesa? Esta ação não pode be desfeita.')) {
+            if (confirm('Tem certeza que deseja excluir esta mesa? Esta ação não pode ser desfeita.')) {
                 state.tables = state.tables.filter(t => t.id !== tableId);
                 saveTablesToLocalStorage();
                 renderTables();
@@ -772,6 +789,10 @@
         }
 
         function openOrderModal(table) {
+            if (state.currentUser.role === 'vendedor' && !state.currentUser.active) {
+                alert('Você está bloqueado e não pode abrir pedidos.');
+                return;
+            }
             state.currentTable = table;
             document.getElementById('modalTableNumber').textContent = table.number;
             
@@ -969,6 +990,10 @@
         }
 
         function saveOrder() {
+            if (state.currentUser.role === 'vendedor' && !state.currentUser.active) {
+                alert('Você está bloqueado e não pode salvar pedidos.');
+                return;
+            }
             const tableIndex = state.tables.findIndex(t => t.id === state.currentTable.id);
             
             if (tableIndex !== -1) {
@@ -988,6 +1013,10 @@
         }
 
         function checkoutOrder() {
+            if (state.currentUser.role === 'vendedor' && !state.currentUser.active) {
+                alert('Você está bloqueado e não pode finalizar pedidos.');
+                return;
+            }
             if (confirm('Deseja finalizar este pedido?')) {
                 const tableIndex = state.tables.findIndex(t => t.id === state.currentTable.id);
                 
@@ -1148,7 +1177,11 @@
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-500">${user.role === 'admin' ? 'Administrador' : 'Vendedor'}</div>
                     </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${user.active ? 'Ativo' : 'Bloqueado'}</div>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        ${user.role !== 'admin' ? `<button class="toggle-active text-blue-600 hover:text-blue-900 mr-3" data-username="${user.username}">${user.active ? 'Bloquear' : 'Desbloquear'}</button>` : ''}
                         ${user.role !== 'admin' ? `<button class="delete-user text-red-600 hover:text-red-900" data-username="${user.username}">Excluir</button>` : ''}
                     </td>
                 `;
@@ -1162,6 +1195,22 @@
                     deleteUser(username);
                 });
             });
+
+            document.querySelectorAll('.toggle-active').forEach(button => {
+                button.addEventListener('click', function() {
+                    const username = this.getAttribute('data-username');
+                    toggleUserActive(username);
+                });
+            });
+        }
+
+        function toggleUserActive(username) {
+            const user = state.users.find(u => u.username === username);
+            if (user) {
+                user.active = !user.active;
+                saveUsersToLocalStorage();
+                renderUsersForAdmin();
+            }
         }
 
         function saveUser(e) {
@@ -1179,7 +1228,8 @@
                 const newUser = {
                     username: newUsername,
                     password: newPassword,
-                    role: 'vendedor'
+                    role: 'vendedor',
+                    active: true
                 };
                 
                 state.users.push(newUser);
@@ -1244,7 +1294,7 @@
                         <div class="text-sm text-gray-900">${sale.discount}%</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace("." , ",") : '0,00'}</div>
+                        <div class="text-sm text-gray-900">R$ ${sale.serviceChargeAmount ? sale.serviceChargeAmount.toFixed(2).replace('.', ',') : '0,00'}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">R$ ${sale.total.toFixed(2).replace('.', ',')}</div>
