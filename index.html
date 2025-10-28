@@ -4,10 +4,722 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema PDV - Barraquinha</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com">
+// Função para gerar o extrato PDF do cliente
+document.getElementById('generateClientPDF').addEventListener('click', () => {
+    if (!state.currentOrder || !state.currentTable) {
+        alert('Nenhum pedido disponível para gerar extrato.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const tableNumber = state.currentTable.number;
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('pt-BR');
+    const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    doc.setFontSize(16);
+    doc.text('Kombi do Eddy', 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Mesa ${tableNumber}`, 14, 23);
+    doc.text(`Data: ${formattedDate} - ${formattedTime}`, 14, 30);
+
+    const headers = [['Item', 'Qtd', 'Preço Unitário', 'Total']];
+    const body = state.currentOrder.items.map(item => [
+        item.name,
+        item.quantity,
+        `R$ ${item.price.toFixed(2).replace('.', ',')}`,
+        `R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}`
+    ]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 38,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.text(`Subtotal: R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.text(`Desconto: ${state.currentOrder.discount}%`, 14, y);
+    y += 6;
+    doc.text(`Serviço (10%): R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.setFontSize(14);
+    doc.text(`Total Final: R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`, 14, y);
+
+    const filename = `Extrato_Mesa_${tableNumber}.pdf`;
+    doc.save(filename);
+});
+
+
+// --- Aba Estoque ---
+
+// Botão da aba Estoque
+document.getElementById('adminStockTab').addEventListener('click', () => switchTab('stock'));
+
+// Função para renderizar o estoque com base nas vendas filtradas
+function renderStock() {
+    const stockBody = document.getElementById('stockTableBody');
+    if (!stockBody) return;
+    stockBody.innerHTML = '';
+
+    // Pegar valores dos filtros da aba de estoque
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    // Criar dicionário com todos os produtos
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const productEntries = Object.entries(productSales);
+    if (productEntries.length === 0) {
+        stockBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">Nenhum produto encontrado</td></tr>';
+        return;
+    }
+
+    productEntries.forEach(([name, qty]) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${qty}</td>
+        `;
+        stockBody.appendChild(row);
+    });
+}
+
+// Gerar PDF do estoque
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    if (startDateValue || endDateValue) {
+        let periodo = '';
+        if (startDateValue && endDateValue) periodo = `Período: ${startDateValue} a ${endDateValue}`;
+        else if (startDateValue) periodo = `A partir de ${startDateValue}`;
+        else if (endDateValue) periodo = `Até ${endDateValue}`;
+        doc.setFontSize(12);
+        doc.text(periodo, 14, 22);
+    }
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    doc.save('Relatorio_Estoque.pdf');
+});
+
+// Ações dos filtros da aba estoque
+document.getElementById('applyStockDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetStockDateFilter').addEventListener('click', () => {
+    document.getElementById('stockDateStartFilter').value = '';
+    document.getElementById('stockDateEndFilter').value = '';
+    renderStock();
+});
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    // Usar os mesmos filtros de data
+    const startDateValue = document.getElementById('dateStartFilter') ? document.getElementById('dateStartFilter').value : '';
+    const endDateValue = document.getElementById('dateEndFilter') ? document.getElementById('dateEndFilter').value : '';
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        const normalizedSaleDate = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
+
+        let isAfterStartDate = true;
+        if (startDate) {
+            isAfterStartDate = normalizedSaleDate >= new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        }
+
+        let isBeforeEndDate = true;
+        if (endDate) {
+            const nextDayEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
+            isBeforeEndDate = normalizedSaleDate < nextDayEndDate;
+        }
+
+        return isAfterStartDate && isBeforeEndDate;
+    });
+
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            productSales[item.name] = (productSales[item.name] || 0) + item.quantity;
+        });
+    });
+
+    if (Object.keys(productSales).length === 0) {
+        alert('Nenhum produto vendido no período selecionado.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    const filename = 'Relatorio_Estoque.pdf';
+    doc.save(filename);
+});
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const filteredSales = filterSales();
+    const productSales = {};
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.name]) {
+                productSales[item.name] = 0;
+            }
+            productSales[item.name] += item.quantity;
+        });
+    });
+
+    if (Object.keys(productSales).length === 0) {
+        alert('Nenhum produto vendido no período selecionado.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    const filename = 'Relatorio_Estoque.pdf';
+    doc.save(filename);
+});
+
+// Atualizar estoque quando aplicar filtros de data
+document.getElementById('applyDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetDateFilter').addEventListener('click', renderStock);
+
+</script>
     <!-- Adicionando a biblioteca jsPDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+// Função para gerar o extrato PDF do cliente
+document.getElementById('generateClientPDF').addEventListener('click', () => {
+    if (!state.currentOrder || !state.currentTable) {
+        alert('Nenhum pedido disponível para gerar extrato.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const tableNumber = state.currentTable.number;
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('pt-BR');
+    const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    doc.setFontSize(16);
+    doc.text('Kombi do Eddy', 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Mesa ${tableNumber}`, 14, 23);
+    doc.text(`Data: ${formattedDate} - ${formattedTime}`, 14, 30);
+
+    const headers = [['Item', 'Qtd', 'Preço Unitário', 'Total']];
+    const body = state.currentOrder.items.map(item => [
+        item.name,
+        item.quantity,
+        `R$ ${item.price.toFixed(2).replace('.', ',')}`,
+        `R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}`
+    ]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 38,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.text(`Subtotal: R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.text(`Desconto: ${state.currentOrder.discount}%`, 14, y);
+    y += 6;
+    doc.text(`Serviço (10%): R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.setFontSize(14);
+    doc.text(`Total Final: R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`, 14, y);
+
+    const filename = `Extrato_Mesa_${tableNumber}.pdf`;
+    doc.save(filename);
+});
+
+
+// --- Aba Estoque ---
+
+// Botão da aba Estoque
+document.getElementById('adminStockTab').addEventListener('click', () => switchTab('stock'));
+
+// Função para renderizar o estoque com base nas vendas filtradas
+function renderStock() {
+    const stockBody = document.getElementById('stockTableBody');
+    if (!stockBody) return;
+    stockBody.innerHTML = '';
+
+    // Pegar valores dos filtros da aba de estoque
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    // Criar dicionário com todos os produtos
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const productEntries = Object.entries(productSales);
+    if (productEntries.length === 0) {
+        stockBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">Nenhum produto encontrado</td></tr>';
+        return;
+    }
+
+    productEntries.forEach(([name, qty]) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${qty}</td>
+        `;
+        stockBody.appendChild(row);
+    });
+}
+
+// Gerar PDF do estoque
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    if (startDateValue || endDateValue) {
+        let periodo = '';
+        if (startDateValue && endDateValue) periodo = `Período: ${startDateValue} a ${endDateValue}`;
+        else if (startDateValue) periodo = `A partir de ${startDateValue}`;
+        else if (endDateValue) periodo = `Até ${endDateValue}`;
+        doc.setFontSize(12);
+        doc.text(periodo, 14, 22);
+    }
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    doc.save('Relatorio_Estoque.pdf');
+});
+
+// Ações dos filtros da aba estoque
+document.getElementById('applyStockDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetStockDateFilter').addEventListener('click', () => {
+    document.getElementById('stockDateStartFilter').value = '';
+    document.getElementById('stockDateEndFilter').value = '';
+    renderStock();
+});
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const filteredSales = filterSales();
+    const productSales = {};
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.name]) {
+                productSales[item.name] = 0;
+            }
+            productSales[item.name] += item.quantity;
+        });
+    });
+
+    if (Object.keys(productSales).length === 0) {
+        alert('Nenhum produto vendido no período selecionado.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    const filename = 'Relatorio_Estoque.pdf';
+    doc.save(filename);
+});
+
+// Atualizar estoque quando aplicar filtros de data
+document.getElementById('applyDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetDateFilter').addEventListener('click', renderStock);
+
+</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js">
+// Função para gerar o extrato PDF do cliente
+document.getElementById('generateClientPDF').addEventListener('click', () => {
+    if (!state.currentOrder || !state.currentTable) {
+        alert('Nenhum pedido disponível para gerar extrato.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const tableNumber = state.currentTable.number;
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('pt-BR');
+    const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    doc.setFontSize(16);
+    doc.text('Kombi do Eddy', 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Mesa ${tableNumber}`, 14, 23);
+    doc.text(`Data: ${formattedDate} - ${formattedTime}`, 14, 30);
+
+    const headers = [['Item', 'Qtd', 'Preço Unitário', 'Total']];
+    const body = state.currentOrder.items.map(item => [
+        item.name,
+        item.quantity,
+        `R$ ${item.price.toFixed(2).replace('.', ',')}`,
+        `R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}`
+    ]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 38,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.text(`Subtotal: R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.text(`Desconto: ${state.currentOrder.discount}%`, 14, y);
+    y += 6;
+    doc.text(`Serviço (10%): R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.setFontSize(14);
+    doc.text(`Total Final: R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`, 14, y);
+
+    const filename = `Extrato_Mesa_${tableNumber}.pdf`;
+    doc.save(filename);
+});
+
+
+// --- Aba Estoque ---
+
+// Botão da aba Estoque
+document.getElementById('adminStockTab').addEventListener('click', () => switchTab('stock'));
+
+// Função para renderizar o estoque com base nas vendas filtradas
+function renderStock() {
+    const stockBody = document.getElementById('stockTableBody');
+    if (!stockBody) return;
+    stockBody.innerHTML = '';
+
+    // Pegar valores dos filtros da aba de estoque
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    // Criar dicionário com todos os produtos
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const productEntries = Object.entries(productSales);
+    if (productEntries.length === 0) {
+        stockBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">Nenhum produto encontrado</td></tr>';
+        return;
+    }
+
+    productEntries.forEach(([name, qty]) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${qty}</td>
+        `;
+        stockBody.appendChild(row);
+    });
+}
+
+// Gerar PDF do estoque
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    if (startDateValue || endDateValue) {
+        let periodo = '';
+        if (startDateValue && endDateValue) periodo = `Período: ${startDateValue} a ${endDateValue}`;
+        else if (startDateValue) periodo = `A partir de ${startDateValue}`;
+        else if (endDateValue) periodo = `Até ${endDateValue}`;
+        doc.setFontSize(12);
+        doc.text(periodo, 14, 22);
+    }
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    doc.save('Relatorio_Estoque.pdf');
+});
+
+// Ações dos filtros da aba estoque
+document.getElementById('applyStockDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetStockDateFilter').addEventListener('click', () => {
+    document.getElementById('stockDateStartFilter').value = '';
+    document.getElementById('stockDateEndFilter').value = '';
+    renderStock();
+});
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const filteredSales = filterSales();
+    const productSales = {};
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.name]) {
+                productSales[item.name] = 0;
+            }
+            productSales[item.name] += item.quantity;
+        });
+    });
+
+    if (Object.keys(productSales).length === 0) {
+        alert('Nenhum produto vendido no período selecionado.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    const filename = 'Relatorio_Estoque.pdf';
+    doc.save(filename);
+});
+
+// Atualizar estoque quando aplicar filtros de data
+document.getElementById('applyDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetDateFilter').addEventListener('click', renderStock);
+
+</script>
     <style>
         /* Estilos personalizados */
         .table-active {
@@ -26,7 +738,8 @@
         .sidebar {
             transition: width 0.3s ease-in-out;
             width: 70px; /* Colapsada por padrão em mobile */
-            overflow: hidden;
+            height: 100dvh;
+            overflow: visible;
         }
         .sidebar.collapsed {
             width: 70px;
@@ -44,6 +757,7 @@
         @media (min-width: 768px) {
             .sidebar {
                 width: 256px; /* Expandida por padrão em desktop */
+                height: 100vh;
             }
             .sidebar.collapsed {
                 width: 70px;
@@ -65,7 +779,14 @@
             background-color: #2563eb;
             color: white;
         }
+    
+    @media (max-width: 767px) {
+        #mainApp {
+            flex-direction: row !important;
+        }
+    }
     </style>
+    
 </head>
 <body class="bg-gray-100">
     <!-- Login Modal (Inicial) -->
@@ -88,7 +809,7 @@
         </div>
     </div>
 
-    <div id="mainApp" class="flex flex-col md:flex-row h-screen overflow-y-auto md:overflow-hidden hidden">
+    <div id="mainApp" class="flex flex-row h-screen overflow-y-auto md:overflow-hidden hidden">
         <!-- Sidebar -->
         <div id="sidebar" class="sidebar bg-blue-800 text-white flex-shrink-0 flex flex-col">
             <div class="p-4 flex items-center justify-between border-b border-blue-700">
@@ -169,6 +890,7 @@
                     <button id="adminTablesTab" class="tab-button">Mesas</button>
                     <button id="adminFinanceTab" class="tab-button">Financeiro</button>
                     <button id="adminUsersTab" class="tab-button">Usuários</button>
+                    <button id="adminStockTab" class="tab-button">Estoque</button>
                 </div>
 
                 <!-- Products Tab -->
@@ -302,6 +1024,50 @@
                     </div>
                 </div>
 
+                
+                <!-- Stock Tab -->
+                
+<div id="stockTabContent" class="tab-content hidden">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+        <h2 class="text-2xl font-bold text-gray-800">Controle de Estoque</h2>
+        <button id="generateStockPDF" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+            Gerar PDF do Estoque
+        </button>
+    </div>
+
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0 sm:space-x-4">
+        <div class="w-full sm:w-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+            <div>
+                <label for="stockDateStartFilter" class="block text-sm font-medium text-gray-700">Data Inicial:</label>
+                <input type="date" id="stockDateStartFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="stockDateEndFilter" class="block text-sm font-medium text-gray-700">Data Final:</label>
+                <input type="date" id="stockDateEndFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="flex w-full sm:w-auto space-x-2">
+            <button id="applyStockDateFilter" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Buscar</button>
+            <button id="resetStockDateFilter" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">Limpar Filtro</button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow overflow-x-auto">
+
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade Vendida</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stockTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Dados de estoque serão preenchidos dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Add Product Modal -->
                 <div id="addProductModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
                     <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -427,6 +1193,7 @@
                                     <button id="saveOrder" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex-1">
                                         Salvar Pedido
                                     </button>
+                                    <button id="generateClientPDF" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded flex-1">Gerar Extrato PDF</button>
                                     <button id="checkoutOrder" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex-1">
                                         Finalizar Pedido
                                     </button>
@@ -618,7 +1385,38 @@
             }
         });
 
-        elements.discount.addEventListener('input', updateOrderTotal);
+        
+// Solicita código de forma segura ao tentar aplicar desconto
+// Evita loop forçando blur ao recusar e usando uma flag para autorizar
+let discountAuthorized = false;
+
+elements.discount.addEventListener('focus', (e) => {
+    // Se já autorizado, não pede código novamente
+    if (discountAuthorized) return;
+
+    // Usa prompt apenas uma vez por foco; se recusado, remove o foco para evitar loop
+    const code = prompt('Digite o código de desconto:');
+    if (code === 'jesf10') {
+        discountAuthorized = true;
+        alert('Código aceito! Você pode aplicar o desconto.');
+    } else {
+        alert('Código incorreto! O desconto não será aplicado.');
+        elements.discount.value = 0;
+        updateOrderTotal();
+        // Remove o foco para evitar re-entrada imediata em alguns navegadores
+        try { elements.discount.blur(); } catch (err) {}
+    }
+});
+
+// Se o usuário apagar o valor do desconto (ou definir 0), revoga autorização
+elements.discount.addEventListener('input', () => {
+    if (!elements.discount.value || Number(elements.discount.value) === 0) {
+        discountAuthorized = false;
+    }
+    updateOrderTotal();
+});
+
+elements.discount.addEventListener('input', updateOrderTotal);
         elements.includeServiceCharge.addEventListener('change', updateOrderTotal);
         elements.itemSearch.addEventListener('input', filterProducts);
         elements.dateStartFilter.addEventListener('change', filterSalesByDateRange);
@@ -1038,6 +1836,8 @@
                     state.tables[tableIndex].order = null;
                     state.tables[tableIndex].status = 'available';
                     saveTablesToLocalStorage();
+                    // Atualiza visualmente as mesas sem recarregar
+                    renderTables();
 
                     elements.discount.value = 0;
                     
@@ -1466,7 +2266,11 @@
                 content.classList.add('hidden');
             });
             
-            if (tab === 'products') {
+            if (tab === 'stock') {
+                document.getElementById('adminStockTab').classList.add('active');
+                document.getElementById('stockTabContent').classList.remove('hidden');
+                renderStock();
+            } else if (tab === 'products') {
                 elements.adminProductsTab.classList.add('active');
                 elements.productsTabContent.classList.remove('hidden');
             } else if (tab === 'tables') {
@@ -1496,6 +2300,223 @@
         function saveUsersToLocalStorage() {
             localStorage.setItem('users', JSON.stringify(state.users));
         }
-    </script>
+    
+// Função para gerar o extrato PDF do cliente
+document.getElementById('generateClientPDF').addEventListener('click', () => {
+    if (!state.currentOrder || !state.currentTable) {
+        alert('Nenhum pedido disponível para gerar extrato.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const tableNumber = state.currentTable.number;
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('pt-BR');
+    const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    doc.setFontSize(16);
+    doc.text('Kombi do Eddy', 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Mesa ${tableNumber}`, 14, 23);
+    doc.text(`Data: ${formattedDate} - ${formattedTime}`, 14, 30);
+
+    const headers = [['Item', 'Qtd', 'Preço Unitário', 'Total']];
+    const body = state.currentOrder.items.map(item => [
+        item.name,
+        item.quantity,
+        `R$ ${item.price.toFixed(2).replace('.', ',')}`,
+        `R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}`
+    ]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 38,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.text(`Subtotal: R$ ${state.currentOrder.subtotal.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.text(`Desconto: ${state.currentOrder.discount}%`, 14, y);
+    y += 6;
+    doc.text(`Serviço (10%): R$ ${state.currentOrder.serviceChargeAmount.toFixed(2).replace('.', ',')}`, 14, y);
+    y += 6;
+    doc.setFontSize(14);
+    doc.text(`Total Final: R$ ${state.currentOrder.total.toFixed(2).replace('.', ',')}`, 14, y);
+
+    const filename = `Extrato_Mesa_${tableNumber}.pdf`;
+    doc.save(filename);
+});
+
+
+// --- Aba Estoque ---
+
+// Botão da aba Estoque
+document.getElementById('adminStockTab').addEventListener('click', () => switchTab('stock'));
+
+// Função para renderizar o estoque com base nas vendas filtradas
+function renderStock() {
+    const stockBody = document.getElementById('stockTableBody');
+    if (!stockBody) return;
+    stockBody.innerHTML = '';
+
+    // Pegar valores dos filtros da aba de estoque
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    // Criar dicionário com todos os produtos
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const productEntries = Object.entries(productSales);
+    if (productEntries.length === 0) {
+        stockBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">Nenhum produto encontrado</td></tr>';
+        return;
+    }
+
+    productEntries.forEach(([name, qty]) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${qty}</td>
+        `;
+        stockBody.appendChild(row);
+    });
+}
+
+// Gerar PDF do estoque
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const startDateValue = document.getElementById('stockDateStartFilter').value;
+    const endDateValue = document.getElementById('stockDateEndFilter').value;
+
+    let startDate = null;
+    let endDate = null;
+    if (startDateValue) startDate = new Date(startDateValue + 'T00:00:00');
+    if (endDateValue) endDate = new Date(endDateValue + 'T23:59:59.999');
+
+    const filteredSales = state.sales.filter(sale => {
+        const saleDate = new Date(sale.date);
+        let include = true;
+        if (startDate && saleDate < startDate) include = false;
+        if (endDate && saleDate > endDate) include = false;
+        return include;
+    });
+
+    const productSales = {};
+    state.products.forEach(p => productSales[p.name] = 0);
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSales[item.name] != null) {
+                productSales[item.name] += item.quantity;
+            }
+        });
+    });
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    if (startDateValue || endDateValue) {
+        let periodo = '';
+        if (startDateValue && endDateValue) periodo = `Período: ${startDateValue} a ${endDateValue}`;
+        else if (startDateValue) periodo = `A partir de ${startDateValue}`;
+        else if (endDateValue) periodo = `Até ${endDateValue}`;
+        doc.setFontSize(12);
+        doc.text(periodo, 14, 22);
+    }
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    doc.save('Relatorio_Estoque.pdf');
+});
+
+// Ações dos filtros da aba estoque
+document.getElementById('applyStockDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetStockDateFilter').addEventListener('click', () => {
+    document.getElementById('stockDateStartFilter').value = '';
+    document.getElementById('stockDateEndFilter').value = '';
+    renderStock();
+});
+document.getElementById('generateStockPDF').addEventListener('click', () => {
+    const filteredSales = filterSales();
+    const productSales = {};
+
+    filteredSales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.name]) {
+                productSales[item.name] = 0;
+            }
+            productSales[item.name] += item.quantity;
+        });
+    });
+
+    if (Object.keys(productSales).length === 0) {
+        alert('Nenhum produto vendido no período selecionado.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque - Kombi do Eddy', 14, 15);
+
+    const headers = [['Produto', 'Quantidade Vendida']];
+    const body = Object.entries(productSales).map(([name, qty]) => [name, qty]);
+
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 2 }
+    });
+
+    const filename = 'Relatorio_Estoque.pdf';
+    doc.save(filename);
+});
+
+// Atualizar estoque quando aplicar filtros de data
+document.getElementById('applyDateFilter').addEventListener('click', renderStock);
+document.getElementById('resetDateFilter').addEventListener('click', renderStock);
+
+</script>
 </body>
 </html>
