@@ -1503,7 +1503,7 @@ elements.discount.addEventListener('input', updateOrderTotal);
             const newTable = {
                 id: Date.now(),
                 number: state.tables.length + 1,
-                status: 'available',
+                status: 'livre',
                 order: null
             };
             state.tables.push(newTable);
@@ -1834,7 +1834,7 @@ elements.discount.addEventListener('input', updateOrderTotal);
                     saveSalesToLocalStorage();
                     
                     state.tables[tableIndex].order = null;
-                    state.tables[tableIndex].status = 'available';
+                    state.tables[tableIndex].status = 'livre';
                     saveTablesToLocalStorage();
                     // Atualiza visualmente as mesas sem recarregar
                     renderTables();
